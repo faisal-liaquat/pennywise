@@ -7,6 +7,10 @@
   import Register from './routes/Register.svelte'
   import ForgotPassword from './routes/ForgotPassword.svelte'
   import Dashboard from './routes/Dashboard.svelte'
+  import BudgetPeriods from './routes/BudgetPeriods.svelte'
+  import Categories from './routes/Categories.svelte'
+  import Expenses from './routes/Expenses.svelte'
+  import Settings from './routes/Settings.svelte'
 
   let currentRoute = 'loading'
   let showResetPassword = false
@@ -19,11 +23,9 @@
   let isInitialized = false
 
   onMount(async () => {
-    // Check URL for password reset
     const fullUrl = window.location.href
 
     if (fullUrl.includes('type=recovery') || fullUrl.includes('access_token')) {
-      // Extract tokens from URL
       const hashPart = fullUrl.split('#')[1] || ''
       const params = new URLSearchParams(hashPart)
 
@@ -32,7 +34,6 @@
       const type = params.get('type')
 
       if (type === 'recovery' && accessToken) {
-        // Set session with recovery tokens
         const { error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
@@ -44,7 +45,6 @@
           showResetPassword = true
           currentRoute = 'reset-password'
         } else {
-          // Clean URL
           window.history.replaceState({}, '', '/#/reset-password')
           showResetPassword = true
           currentRoute = 'reset-password'
@@ -54,15 +54,12 @@
       }
     }
 
-    // Initialize auth
     await authStore.initialize()
     isInitialized = true
 
-    // Set initial route
     const hash = window.location.hash.slice(1) || '/'
     currentRoute = getRouteFromHash(hash)
 
-    // Listen for hash changes
     window.addEventListener('hashchange', handleHashChange)
   })
 
@@ -77,42 +74,40 @@
     if (hash.startsWith('/login')) return 'login'
     if (hash.startsWith('/register')) return 'register'
     if (hash.startsWith('/forgot-password')) return 'forgot-password'
-    if (hash.startsWith('/dashboard')) return 'dashboard'
     if (hash.startsWith('/reset-password')) return 'reset-password'
+    if (hash.startsWith('/dashboard')) return 'dashboard'
+    if (hash.startsWith('/budget')) return 'budget'
+    if (hash.startsWith('/categories')) return 'categories'
+    if (hash.startsWith('/expenses')) return 'expenses'
+    if (hash.startsWith('/settings')) return 'settings'
 
-    // Default route
     if ($authStore.user) return 'dashboard'
     return 'login'
   }
 
+  const PROTECTED_ROUTES = ['dashboard', 'budget', 'categories', 'expenses', 'settings']
+
   function validatePasswordForm() {
     passwordErrors = {}
-
     if (!newPassword) {
       passwordErrors.newPassword = 'Password is required'
     } else if (newPassword.length < 6) {
       passwordErrors.newPassword = 'Password must be at least 6 characters'
     }
-
     if (!confirmPassword) {
       passwordErrors.confirmPassword = 'Please confirm your password'
     } else if (newPassword !== confirmPassword) {
       passwordErrors.confirmPassword = 'Passwords do not match'
     }
-
     return Object.keys(passwordErrors).length === 0
   }
 
   async function handlePasswordUpdate() {
     if (!validatePasswordForm()) return
-
     isUpdating = true
     resetPasswordError = ''
 
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    })
-
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
     isUpdating = false
 
     if (error) {
@@ -121,10 +116,7 @@
       updateSuccess = true
       newPassword = ''
       confirmPassword = ''
-
-      // Wait 2 seconds then redirect
       setTimeout(() => {
-        // Force reload auth state
         authStore.initialize().then(() => {
           window.location.hash = '/dashboard'
           showResetPassword = false
@@ -143,11 +135,10 @@
     showResetPassword = false
   }
 
-  // Handle routing logic
   $: {
     if (
       isInitialized &&
-      currentRoute === 'dashboard' &&
+      PROTECTED_ROUTES.includes(currentRoute) &&
       !$authStore.user &&
       !$authStore.loading &&
       !showResetPassword
@@ -188,7 +179,7 @@
           <button class="btn btn-primary btn-full" on:click={goToForgotPassword}>
             Request New Reset Link
           </button>
-          <button class="btn btn-outline btn-full" on:click={goToLogin}> Back to Login </button>
+          <button class="btn btn-outline btn-full" on:click={goToLogin}>Back to Login</button>
         </div>
       {:else if updateSuccess}
         <div class="alert alert-success">
@@ -246,7 +237,7 @@
         </form>
 
         <div class="auth-footer">
-          <button type="button" class="link-button" on:click={goToLogin}> ← Back to login </button>
+          <button type="button" class="link-button" on:click={goToLogin}>← Back to login</button>
         </div>
       {/if}
     </div>
@@ -259,6 +250,14 @@
   <ForgotPassword />
 {:else if currentRoute === 'dashboard'}
   <Dashboard />
+{:else if currentRoute === 'budget'}
+  <BudgetPeriods />
+{:else if currentRoute === 'categories'}
+  <Categories />
+{:else if currentRoute === 'expenses'}
+  <Expenses />
+{:else if currentRoute === 'settings'}
+  <Settings />
 {/if}
 
 <style>
