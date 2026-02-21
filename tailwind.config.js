@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{svelte,js,ts,jsx,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -24,10 +25,10 @@ export default {
       },
       boxShadow: {
         card: '0 2px 16px 0 rgba(124,58,237,0.07)',
-        'card-hover': '0 4px 24px 0 rgba(124,58,237,0.13)',
+        'card-hover': '0 8px 32px 0 rgba(124,58,237,0.15)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
     },
   },
