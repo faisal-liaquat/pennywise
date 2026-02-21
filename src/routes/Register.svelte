@@ -15,277 +15,436 @@
 
   function validateForm() {
     errors = {}
-
-    if (!fullName) {
-      errors.fullName = 'Full name is required'
-    } else if (fullName.length < 2) {
-      errors.fullName = 'Name must be at least 2 characters'
-    }
-
-    if (!email) {
-      errors.email = 'Email is required'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = 'Please enter a valid email'
-    }
-
-    if (!password) {
-      errors.password = 'Password is required'
-    } else if (password.length < 6) {
-      errors.password = 'Password must be at least 6 characters'
-    }
-
-    if (!confirmPassword) {
-      errors.confirmPassword = 'Please confirm your password'
-    } else if (password !== confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match'
-    }
-
+    if (!fullName) errors.fullName = 'Full name is required'
+    else if (fullName.length < 2) errors.fullName = 'Name must be at least 2 characters'
+    if (!email) errors.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Please enter a valid email'
+    if (!password) errors.password = 'Password is required'
+    else if (password.length < 6) errors.password = 'Password must be at least 6 characters'
+    if (!confirmPassword) errors.confirmPassword = 'Please confirm your password'
+    else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match'
     return Object.keys(errors).length === 0
   }
 
   async function handleSubmit() {
     generalError = ''
     successMessage = ''
-
-    if (!validateForm()) {
-      return
-    }
-
+    if (!validateForm()) return
     loading = true
-
     const result = await authStore.signUp(email, password, fullName)
-
     loading = false
-
     if (result.success) {
-      successMessage =
-        'Account created successfully! Please check your email to verify your account.'
-
-      // Clear form
+      successMessage = 'Account created! Check your email to verify, then sign in.'
       fullName = ''
       email = ''
       password = ''
       confirmPassword = ''
-
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        navigate('/login')
-      }, 3000)
+      setTimeout(() => navigate('/login'), 3000)
     } else {
       generalError = result.error || 'Failed to create account. Please try again.'
     }
   }
-
-  function handleSignIn() {
-    navigate('/login')
-  }
 </script>
 
-<div class="auth-container">
-  <div class="auth-card">
-    <!-- Logo & Title -->
-    <div class="auth-header">
-      <div class="logo">
-        <svg
-          width="40"
-          height="40"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <circle cx="12" cy="12" r="10" stroke="#16a34a" stroke-width="2" />
-          <path d="M12 6v6l4 2" stroke="#16a34a" stroke-width="2" stroke-linecap="round" />
+<div class="auth-bg">
+  <!-- Left panel -->
+  <div class="auth-panel">
+    <div class="panel-content">
+      <div class="panel-logo">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="14" fill="rgba(255,255,255,0.15)" />
+          <path
+            d="M24 12C17.373 12 12 17.373 12 24s5.373 12 12 12 12-5.373 12-12S30.627 12 24 12z"
+            fill="none"
+            stroke="white"
+            stroke-width="2"
+          />
+          <path
+            d="M24 18v6l4 3"
+            stroke="white"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle cx="24" cy="24" r="2" fill="white" />
         </svg>
       </div>
-      <h1 class="auth-title">Create your account</h1>
-      <p class="auth-subtitle">Start tracking your finances with PennyWise</p>
+      <h2 class="panel-title">Start your<br />financial journey.</h2>
+      <p class="panel-subtitle">
+        Join PennyWise and take the first step toward complete clarity over your money.
+      </p>
+      <div class="panel-steps">
+        <div class="panel-step">
+          <span class="step-num">01</span><span>Create your account</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="panel-step">
+          <span class="step-num">02</span><span>Set up a budget period</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="panel-step">
+          <span class="step-num">03</span><span>Track every transaction</span>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <!-- Form -->
-    <form on:submit|preventDefault={handleSubmit} class="auth-form">
+  <!-- Right: form -->
+  <div class="auth-right">
+    <div class="auth-card">
+      <div class="auth-logo-row">
+        <div class="auth-logo-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect width="28" height="28" rx="8" fill="#7c3aed" />
+            <path
+              d="M14 7C10.134 7 7 10.134 7 14s3.134 7 7 7 7-3.134 7-7-3.134-7-7-7z"
+              fill="none"
+              stroke="white"
+              stroke-width="1.5"
+            />
+            <path
+              d="M14 11v3l2.5 1.5"
+              stroke="white"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+        <div>
+          <span class="auth-logo-name">PennyWise</span>
+          <span class="auth-logo-tag">Finance</span>
+        </div>
+      </div>
+
+      <div class="auth-header">
+        <h1 class="auth-title">Create account</h1>
+        <p class="auth-subtitle">Free forever. No credit card needed.</p>
+      </div>
+
       {#if generalError}
-        <div class="alert alert-error">
+        <div class="auth-alert auth-alert-error">
           <svg
-            width="20"
-            height="20"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            ><circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" /></svg
           >
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
-            <path d="M12 8v4m0 4h.01" stroke="currentColor" stroke-width="2" />
-          </svg>
           {generalError}
         </div>
       {/if}
 
       {#if successMessage}
-        <div class="alert alert-success">
+        <div class="auth-alert auth-alert-success">
           <svg
-            width="20"
-            height="20"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            ><circle cx="12" cy="12" r="10" /><polyline points="9 12 11 14 15 10" /></svg
           >
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
-            <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" />
-          </svg>
           {successMessage}
         </div>
       {/if}
 
-      <Input
-        type="text"
-        label="Full Name"
-        id="fullName"
-        placeholder="Enter your full name"
-        bind:value={fullName}
-        error={errors.fullName}
-        required
-        autocomplete="name"
-      />
+      <form on:submit|preventDefault={handleSubmit} class="auth-form">
+        <Input
+          type="text"
+          label="Full name"
+          id="fullName"
+          placeholder="Faisal Liaquat"
+          bind:value={fullName}
+          error={errors.fullName}
+          required
+          autocomplete="name"
+        />
 
-      <Input
-        type="email"
-        label="Email"
-        id="email"
-        placeholder="Enter your email"
-        bind:value={email}
-        error={errors.email}
-        required
-        autocomplete="email"
-      />
+        <Input
+          type="email"
+          label="Email address"
+          id="email"
+          placeholder="you@example.com"
+          bind:value={email}
+          error={errors.email}
+          required
+          autocomplete="email"
+        />
 
-      <Input
-        type="password"
-        label="Password"
-        id="password"
-        placeholder="Create a password"
-        bind:value={password}
-        error={errors.password}
-        required
-        autocomplete="new-password"
-      />
+        <Input
+          type="password"
+          label="Password"
+          id="password"
+          placeholder="Min. 6 characters"
+          bind:value={password}
+          error={errors.password}
+          required
+          autocomplete="new-password"
+        />
 
-      <Input
-        type="password"
-        label="Confirm Password"
-        id="confirmPassword"
-        placeholder="Confirm your password"
-        bind:value={confirmPassword}
-        error={errors.confirmPassword}
-        required
-        autocomplete="new-password"
-      />
+        <Input
+          type="password"
+          label="Confirm password"
+          id="confirmPassword"
+          placeholder="Repeat your password"
+          bind:value={confirmPassword}
+          error={errors.confirmPassword}
+          required
+          autocomplete="new-password"
+        />
 
-      <Button type="submit" variant="primary" fullWidth {loading}>
-        {loading ? 'Creating account...' : 'Create Account'}
-      </Button>
-    </form>
+        <Button type="submit" variant="primary" fullWidth {loading}>
+          {loading ? 'Creating account...' : 'Create Account'}
+        </Button>
+      </form>
 
-    <!-- Sign in link -->
-    <div class="auth-footer">
-      <p class="auth-footer-text">
-        Already have an account?
-        <button type="button" class="link-button" on:click={handleSignIn}> Sign in </button>
-      </p>
+      <div class="auth-footer">
+        <p class="auth-footer-text">
+          Already have an account?
+          <button
+            type="button"
+            class="auth-link auth-link-bold"
+            on:click={() => navigate('/login')}
+          >
+            Sign in
+          </button>
+        </p>
+      </div>
     </div>
   </div>
 </div>
 
 <style>
-  .auth-container {
+  .auth-bg {
     min-height: 100vh;
+    display: flex;
+    background-color: var(--color-bg);
+  }
+
+  .auth-panel {
+    display: none;
+    flex: 1;
+    background: linear-gradient(145deg, #4c1d95 0%, #6d28d9 40%, #7c3aed 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .auth-panel::before {
+    content: '';
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 50%;
+    top: -100px;
+    right: -100px;
+  }
+
+  .auth-panel::after {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 50%;
+    bottom: -50px;
+    left: -50px;
+  }
+
+  @media (min-width: 900px) {
+    .auth-panel {
+      display: flex;
+    }
+  }
+
+  .panel-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4rem 3.5rem;
+  }
+
+  .panel-logo {
+    margin-bottom: 2.5rem;
+  }
+
+  .panel-title {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: white;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+    letter-spacing: -0.03em;
+  }
+
+  .panel-subtitle {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.6;
+    margin-bottom: 2.5rem;
+  }
+
+  .panel-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .panel-step {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    font-size: 0.925rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 500;
+    padding: 0.5rem 0;
+  }
+
+  .step-num {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.05em;
+    min-width: 24px;
+  }
+
+  .step-line {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    margin-left: 11px;
+  }
+
+  .auth-right {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 480px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-    padding: 1rem;
+    padding: 2rem 1.5rem;
+    overflow-y: auto;
+  }
+
+  @media (min-width: 900px) {
+    .auth-right {
+      padding: 3rem;
+    }
   }
 
   .auth-card {
-    background: white;
-    border-radius: 1rem;
-    box-shadow:
-      0 4px 6px -1px rgba(0, 0, 0, 0.1),
-      0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    padding: 2.5rem;
     width: 100%;
-    max-width: 28rem;
+    max-width: 400px;
+  }
+
+  .auth-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .auth-logo-name {
+    display: block;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  .auth-logo-tag {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--color-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
   }
 
   .auth-header {
-    text-align: center;
-    margin-bottom: 2rem;
-  }
-
-  .logo {
-    display: inline-flex;
-    margin-bottom: 1rem;
+    margin-bottom: 1.75rem;
   }
 
   .auth-title {
     font-size: 1.875rem;
-    font-weight: 700;
-    color: #111827;
-    margin-bottom: 0.5rem;
+    font-weight: 800;
+    color: var(--color-text);
+    margin-bottom: 0.375rem;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
   }
 
   .auth-subtitle {
-    color: #6b7280;
-    font-size: 1rem;
+    font-size: 0.9375rem;
+    color: var(--color-text-muted);
+  }
+
+  .auth-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 1.25rem;
+    border: 1.5px solid;
+  }
+
+  .auth-alert-error {
+    background-color: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .auth-alert-success {
+    background-color: rgba(34, 197, 94, 0.08);
+    color: #22c55e;
+    border-color: rgba(34, 197, 94, 0.2);
   }
 
   .auth-form {
     margin-bottom: 1.5rem;
   }
 
-  .link-button {
+  .auth-link {
     background: none;
     border: none;
-    color: #16a34a;
+    color: #7c3aed;
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     padding: 0;
     transition: color 0.2s;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 
-  .link-button:hover {
-    color: #15803d;
+  .auth-link:hover {
+    color: #6d28d9;
     text-decoration: underline;
+  }
+  .auth-link-bold {
+    font-weight: 700;
+    margin-left: 0.25rem;
   }
 
   .auth-footer {
     text-align: center;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e5e7eb;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-border);
   }
 
   .auth-footer-text {
-    color: #6b7280;
-    font-size: 0.875rem;
-  }
-
-  .alert {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .alert-error {
-    background-color: #fef2f2;
-    color: #991b1b;
-    border: 1px solid #fee2e2;
-  }
-
-  .alert-success {
-    background-color: #f0fdf4;
-    color: #166534;
-    border: 1px solid #bbf7d0;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
   }
 </style>

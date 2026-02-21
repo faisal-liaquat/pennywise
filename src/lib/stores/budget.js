@@ -52,7 +52,7 @@ export const categorySpending = derived(
   }
 )
 
-// ─── Derived: total spent in active period ────────────────────────────────────
+// ─── Derived: total spent in active period (expenses only) ────────────────────
 export const totalSpent = derived(
   [transactions, activePeriod],
   ([$transactions, $activePeriod]) => {
@@ -63,14 +63,44 @@ export const totalSpent = derived(
   }
 )
 
-// ─── Derived: remaining budget ────────────────────────────────────────────────
-export const remainingBudget = derived(
-  [activePeriod, totalSpent],
-  ([$activePeriod, $totalSpent]) => {
+// ─── Derived: total income in active period ───────────────────────────────────
+export const totalIncome = derived(
+  [transactions, activePeriod],
+  ([$transactions, $activePeriod]) => {
     if (!$activePeriod) return 0
-    return Number($activePeriod.total_budget) - $totalSpent
+    return $transactions
+      .filter((t) => t.budget_period_id === $activePeriod.id && t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0)
   }
 )
+
+// ─── Derived: remaining budget (budget + income - expenses) ──────────────────
+export const remainingBudget = derived(
+  [activePeriod, totalSpent, totalIncome],
+  ([$activePeriod, $totalSpent, $totalIncome]) => {
+    if (!$activePeriod) return 0
+    return Number($activePeriod.total_budget) + $totalIncome - $totalSpent
+  }
+)
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+export function formatCurrency(amount, currency = 'USD') {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency || 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
+
+export function formatDate(dateStr) {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
@@ -173,16 +203,16 @@ export async function loadCategories() {
   return data
 }
 
-export async function loadTransactions(periodId = null) {
-  let query = supabase
+export async function loadTransactions(periodId) {
+  if (!periodId) return
+
+  const { data, error } = await supabase
     .from('transactions')
-    .select('*, categories(name, color, icon)')
+    .select('*, categories(id, name, icon, color, type)')
+    .eq('budget_period_id', periodId)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
 
-  if (periodId) query = query.eq('budget_period_id', periodId)
-
-  const { data, error } = await query
   if (error) throw error
   transactions.set(data || [])
   return data
@@ -207,64 +237,20 @@ export async function addTransaction({
       category_id,
       amount: Number(amount),
       type,
-      description: description || null,
+      description,
       date,
     })
-    .select('*, categories(name, color, icon)')
+    .select('*, categories(id, name, icon, color, type)')
     .single()
 
   if (error) throw error
-  transactions.update((list) => [data, ...list])
+
+  transactions.update((txs) => [data, ...txs])
   return data
 }
 
 export async function deleteTransaction(id) {
   const { error } = await supabase.from('transactions').delete().eq('id', id)
   if (error) throw error
-  transactions.update((list) => list.filter((t) => t.id !== id))
-}
-
-export async function createCategory({ name, type, color, icon }) {
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData?.user) throw new Error('Not authenticated')
-
-  const { data, error } = await supabase
-    .from('categories')
-    .insert({
-      user_id: userData.user.id,
-      name,
-      type,
-      color,
-      icon: icon || '📦',
-      is_system: false,
-    })
-    .select()
-    .single()
-
-  if (error) throw error
-  categories.update((list) => [...list, data])
-  return data
-}
-
-export async function deleteCategory(id) {
-  const { error } = await supabase.from('categories').delete().eq('id', id)
-  if (error) throw error
-  categories.update((list) => list.filter((c) => c.id !== id))
-}
-
-export function formatCurrency(amount, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount || 0)
-}
-
-export function formatDate(dateStr) {
-  if (!dateStr) return ''
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  transactions.update((txs) => txs.filter((t) => t.id !== id))
 }
