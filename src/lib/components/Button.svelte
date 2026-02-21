@@ -1,6 +1,6 @@
 <script>
   export let type = 'button'
-  export let variant = 'primary' // primary, secondary, outline
+  export let variant = 'primary'
   export let loading = false
   export let disabled = false
   export let fullWidth = false
@@ -8,87 +8,100 @@
 
 <button
   {type}
-  class="btn btn-{variant} {fullWidth ? 'btn-full' : ''}"
+  class="pw-btn pw-btn-{variant} {fullWidth ? 'pw-btn-full' : ''}"
   disabled={disabled || loading}
   on:click
 >
   {#if loading}
-    <svg class="spinner" viewBox="0 0 24 24">
-      <circle class="spinner-circle" cx="12" cy="12" r="10" />
+    <svg class="pw-spinner" viewBox="0 0 24 24" fill="none">
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        stroke-width="3"
+        stroke-dasharray="60"
+        stroke-dashoffset="45"
+        stroke-linecap="round"
+      />
     </svg>
   {/if}
   <slot />
 </button>
 
 <style>
-  .btn {
+  .pw-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    font-weight: 500;
-    border-radius: 0.5rem;
+    padding: 0.8rem 1.5rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    border-radius: 0.875rem;
     border: none;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     position: relative;
+    letter-spacing: -0.01em;
   }
 
-  .btn:disabled {
-    opacity: 0.6;
+  .pw-btn:disabled {
+    opacity: 0.55;
     cursor: not-allowed;
+    transform: none !important;
   }
 
-  .btn-primary {
-    background-color: #16a34a;
+  .pw-btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .pw-btn-primary {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
     color: white;
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
   }
 
-  .btn-primary:hover:not(:disabled) {
-    background-color: #15803d;
+  .pw-btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%);
+    box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
+    transform: translateY(-1px);
   }
 
-  .btn-secondary {
-    background-color: #f3f4f6;
-    color: #374151;
+  .pw-btn-secondary {
+    background-color: var(--color-surface-2);
+    color: var(--color-text-muted);
+    border: 1.5px solid var(--color-border);
   }
 
-  .btn-secondary:hover:not(:disabled) {
-    background-color: #e5e7eb;
+  .pw-btn-secondary:hover:not(:disabled) {
+    color: #7c3aed;
+    border-color: #7c3aed;
   }
 
-  .btn-outline {
+  .pw-btn-outline {
     background-color: transparent;
-    color: #16a34a;
-    border: 1px solid #16a34a;
+    color: #7c3aed;
+    border: 1.5px solid #7c3aed;
   }
 
-  .btn-outline:hover:not(:disabled) {
-    background-color: #f0fdf4;
+  .pw-btn-outline:hover:not(:disabled) {
+    background-color: rgba(124, 58, 237, 0.08);
   }
 
-  .btn-full {
+  .pw-btn-full {
     width: 100%;
   }
 
-  .spinner {
-    width: 1.25rem;
-    height: 1.25rem;
-    animation: spin 1s linear infinite;
+  .pw-spinner {
+    width: 1.125rem;
+    height: 1.125rem;
+    animation: btn-spin 0.8s linear infinite;
+    flex-shrink: 0;
   }
 
-  .spinner-circle {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 3;
-    stroke-linecap: round;
-    stroke-dasharray: 60;
-    stroke-dashoffset: 45;
-  }
-
-  @keyframes spin {
+  @keyframes btn-spin {
     to {
       transform: rotate(360deg);
     }

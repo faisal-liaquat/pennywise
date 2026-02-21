@@ -14,7 +14,7 @@
     <label for={id} class="input-label">
       {label}
       {#if required}
-        <span class="text-red-500">*</span>
+        <span style="color: #ef4444;">*</span>
       {/if}
     </label>
   {/if}
@@ -26,13 +26,13 @@
     {required}
     {autocomplete}
     bind:value
-    class="input {error ? 'input-error' : ''}"
+    class="pw-input {error ? 'pw-input-error' : ''}"
     on:input
     on:blur
   />
 
   {#if error}
-    <p class="error-message">{error}</p>
+    <p class="error-msg">{error}</p>
   {/if}
 </div>
 
@@ -45,39 +45,48 @@
   .input-label {
     display: block;
     font-size: 0.875rem;
-    font-weight: 500;
-    color: #374151;
+    font-weight: 600;
+    color: var(--color-text-muted);
     margin-bottom: 0.5rem;
   }
 
-  .input {
+  .pw-input {
     width: 100%;
     padding: 0.75rem 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    font-size: 1rem;
+    border: 1.5px solid var(--color-border);
+    border-radius: 0.75rem;
+    font-size: 0.9375rem;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-weight: 500;
     transition: all 0.2s;
-    background-color: white;
-  }
-
-  .input:focus {
+    background-color: var(--color-surface-2);
+    color: var(--color-text);
     outline: none;
-    border-color: #16a34a;
-    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
   }
 
-  .input-error {
+  .pw-input::placeholder {
+    color: var(--color-text-subtle);
+  }
+
+  .pw-input:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    background-color: var(--color-surface);
+  }
+
+  .pw-input-error {
     border-color: #ef4444;
   }
 
-  .input-error:focus {
+  .pw-input-error:focus {
     border-color: #ef4444;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
   }
 
-  .error-message {
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
+  .error-msg {
+    margin-top: 0.375rem;
+    font-size: 0.8125rem;
     color: #ef4444;
+    font-weight: 500;
   }
 </style>
