@@ -74,7 +74,7 @@ export const totalIncome = derived(
   }
 )
 
-// ─── Derived: remaining budget (budget + income - expenses) ──────────────────
+// ─── Derived: remaining budget (budget + income - expenses) ───────────────────
 export const remainingBudget = derived(
   [activePeriod, totalSpent, totalIncome],
   ([$activePeriod, $totalSpent, $totalIncome]) => {
@@ -102,7 +102,7 @@ export function formatDate(dateStr) {
   })
 }
 
-// ─── Actions ──────────────────────────────────────────────────────────────────
+// ─── Budget Period Actions ─────────────────────────────────────────────────────
 
 export async function loadBudgetPeriods() {
   loadingBudget.set(true)
@@ -191,6 +191,8 @@ export async function setActivePeriod(period) {
   await loadTransactions(period.id)
 }
 
+// ─── Category Actions ──────────────────────────────────────────────────────────
+
 export async function loadCategories() {
   const { data, error } = await supabase
     .from('categories')
@@ -202,6 +204,39 @@ export async function loadCategories() {
   categories.set(data || [])
   return data
 }
+
+export async function createCategory({ name, type, color, icon }) {
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData?.user) throw new Error('Not authenticated')
+
+  const { data, error } = await supabase
+    .from('categories')
+    .insert({
+      user_id: userData.user.id,
+      name,
+      type,
+      color: color || '#7c3aed',
+      icon: icon || '📦',
+      is_system: false,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  categories.update((cats) => [...cats, data])
+  return data
+}
+
+export async function deleteCategory(id) {
+  const { error } = await supabase.from('categories').delete().eq('id', id).eq('is_system', false) // safety: never delete system categories
+
+  if (error) throw error
+
+  categories.update((cats) => cats.filter((c) => c.id !== id))
+}
+
+// ─── Transaction Actions ───────────────────────────────────────────────────────
 
 export async function loadTransactions(periodId) {
   if (!periodId) return
