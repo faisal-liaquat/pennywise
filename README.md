@@ -3,10 +3,15 @@
 > A clean, minimalist personal finance tracker. Track budgets, expenses, and income across custom date periods — your way.
 
 ![PennyWise Registration](images/registration-preview.png)
+---
 ![PennyWise Dashboard](images/dashboard-preview.png)
+---
 ![PennyWise Budget Periods](images/budgetperiods-preview.png)
+---
 ![PennyWise Transactions](images/transactions-preview.png)
+---
 ![PennyWise Categories](images/categories-preview.png)
+---
 ![PennyWise Analytics](images/analytics-preview.png)
 
 
