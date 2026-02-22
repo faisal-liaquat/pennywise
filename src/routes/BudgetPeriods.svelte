@@ -37,15 +37,16 @@
 </script>
 
 <AppLayout>
-  <div class="p-8">
-    <div class="flex items-center justify-between mb-8">
+  <div class="page-wrap page-mobile-pad">
+    <!-- Header -->
+    <div class="page-header">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Budget Periods</h1>
-        <p class="text-sm text-gray-500 mt-0.5">
+        <h1 class="page-title">Budget Periods</h1>
+        <p class="text-sm mt-0.5" style="color: var(--color-text-subtle);">
           Manage your custom budget periods and allocations
         </p>
       </div>
-      <button class="btn-primary" onclick={() => (showCreate = true)}>
+      <button class="btn-primary touch-target w-full xs:w-auto" onclick={() => (showCreate = true)}>
         <svg
           width="16"
           height="16"
@@ -70,45 +71,51 @@
         action={{ label: 'Create Budget Period', onClick: () => (showCreate = true) }}
       />
     {:else}
-      <div class="space-y-4">
+      <div class="space-y-3 sm:space-y-4">
         {#each $budgetPeriods as period}
-          <div class="card hover:shadow-card-hover transition-shadow duration-200">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-4">
+          <div class="card hover:shadow-md transition-shadow duration-200">
+            <!-- Mobile: stacked layout; Desktop: row layout -->
+            <div
+              class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
+            >
+              <div class="flex items-center gap-3 sm:gap-4">
                 <div
                   class="w-3 h-3 rounded-full flex-shrink-0 {period.is_active
                     ? 'bg-green-500 shadow-lg shadow-green-200'
                     : 'bg-gray-200'}"
                 ></div>
                 <div>
-                  <div class="flex items-center gap-2">
-                    <h3 class="font-semibold text-gray-900">{period.name}</h3>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="font-semibold" style="color: var(--color-text);">{period.name}</h3>
                     {#if period.is_active}
                       <span class="badge bg-green-100 text-green-700">Active</span>
                     {/if}
                   </div>
-                  <p class="text-sm text-gray-500 mt-0.5">
+                  <p class="text-sm mt-0.5" style="color: var(--color-text-subtle);">
                     {formatDate(period.start_date)} — {formatDate(period.end_date)}
                   </p>
                 </div>
               </div>
 
-              <div class="flex items-center gap-6">
+              <div class="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
                 <div class="text-right">
-                  <p class="text-xl font-bold text-gray-900">
+                  <p class="text-lg sm:text-xl font-bold" style="color: var(--color-text);">
                     {formatCurrency(period.total_budget, $userCurrency)}
                   </p>
-                  <p class="text-xs text-gray-400">Total Budget</p>
+                  <p class="text-xs" style="color: var(--color-text-subtle);">Total Budget</p>
                 </div>
                 <div class="flex gap-2">
                   {#if !period.is_active}
-                    <button class="btn-secondary btn-sm" onclick={() => handleSetActive(period)}>
+                    <button
+                      class="btn-secondary btn-sm touch-target"
+                      onclick={() => handleSetActive(period)}
+                    >
                       Set Active
                     </button>
                   {/if}
                   <button
                     aria-label="Edit {period.name}"
-                    class="btn-ghost btn-sm text-primary-600"
+                    class="btn-ghost btn-sm text-primary-600 touch-target"
                     onclick={() => (editingPeriod = period)}
                   >
                     <svg
@@ -125,7 +132,7 @@
                   </button>
                   <button
                     aria-label="Delete {period.name}"
-                    class="btn-ghost btn-sm text-red-500 hover:bg-red-50"
+                    class="btn-ghost btn-sm text-red-500 hover:text-red-500 touch-target"
                     onclick={() => handleDelete(period.id)}
                   >
                     <svg
@@ -150,25 +157,16 @@
   </div>
 </AppLayout>
 
-<Modal open={showCreate} title="New Budget Period" onclose={() => (showCreate = false)}>
-  <BudgetPeriodForm
-    onSuccess={() => {
-      showCreate = false
-      loadBudgetPeriods()
-    }}
-    onCancel={() => (showCreate = false)}
-  />
+<Modal open={showCreate} title="Create Budget Period" onclose={() => (showCreate = false)}>
+  <BudgetPeriodForm onSuccess={() => (showCreate = false)} onCancel={() => (showCreate = false)} />
 </Modal>
 
-<Modal open={!!editingPeriod} title="Edit Budget Period" onclose={() => (editingPeriod = null)}>
-  {#if editingPeriod}
+{#if editingPeriod}
+  <Modal open={!!editingPeriod} title="Edit Budget Period" onclose={() => (editingPeriod = null)}>
     <BudgetPeriodForm
       period={editingPeriod}
-      onSuccess={() => {
-        editingPeriod = null
-        loadBudgetPeriods()
-      }}
+      onSuccess={() => (editingPeriod = null)}
       onCancel={() => (editingPeriod = null)}
     />
-  {/if}
-</Modal>
+  </Modal>
+{/if}
