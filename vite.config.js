@@ -1,17 +1,22 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-// https://vite.dev/config/
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
 export default defineConfig({
   plugins: [svelte()],
+  resolve: {
+    alias: {
+      $lib: path.resolve(__dirname, './src/lib'),
+    },
+  },
   build: {
-    // Generate source maps for easier debugging in production
     sourcemap: false,
-    // Chunk size warning threshold (kB)
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        // Manual chunk splitting for better caching
         manualChunks: {
           supabase: ['@supabase/supabase-js'],
           'date-fns': ['date-fns'],
@@ -19,6 +24,5 @@ export default defineConfig({
       },
     },
   },
-  // Ensure environment variables are properly loaded
   envPrefix: 'VITE_',
 })
