@@ -9,7 +9,7 @@
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte'
   import {
     activePeriod,
-    transactions, // ← ADD THIS
+    transactions,
     loadBudgetPeriods,
     loadCategories,
     loadTransactions,
@@ -33,7 +33,6 @@
 
   onMount(async () => {
     await Promise.all([loadBudgetPeriods(), loadCategories(), loadUserCurrency()])
-    // Load transactions for ALL periods so analytics store has full history
     const { supabase } = await import('$lib/supabaseClient')
     const { data: userData } = await supabase.auth.getUser()
     if (userData?.user) {
@@ -55,11 +54,7 @@
   ]
 
   const donutSegments = $derived(
-    $activeCategoryBreakdown.map((c) => ({
-      value: c.amount,
-      color: c.color,
-      label: c.name,
-    }))
+    $activeCategoryBreakdown.map((c) => ({ value: c.amount, color: c.color, label: c.name }))
   )
 
   const spentPct = $derived(
@@ -70,34 +65,36 @@
 </script>
 
 <AppLayout>
-  <div class="p-6 md:p-8 max-w-5xl mx-auto">
+  <div class="page-wrap page-mobile-pad">
     <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold" style="color: var(--color-text);">Analytics</h1>
+    <div class="mb-5 sm:mb-6">
+      <h1 class="page-title">Analytics</h1>
       <p class="text-sm mt-0.5" style="color: var(--color-text-subtle);">
         {#if $activePeriod}{$activePeriod.name}{:else}No active period{/if}
       </p>
     </div>
 
-    <!-- Tab nav -->
-    <div
-      class="flex gap-1 p-1 rounded-xl mb-6 overflow-x-auto"
-      style="background: var(--color-border);"
-    >
-      {#each tabs as tab}
-        <button
-          class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0"
-          style="
-            background: {activeTab === tab.id ? 'var(--color-surface)' : 'transparent'};
-            color: {activeTab === tab.id ? 'var(--color-text)' : 'var(--color-text-subtle)'};
-            box-shadow: {activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'};
-          "
-          onclick={() => (activeTab = tab.id)}
-        >
-          <span>{tab.icon}</span>
-          <span>{tab.label}</span>
-        </button>
-      {/each}
+    <!-- Tab nav — scrollable on small screens -->
+    <div class="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 mb-5 sm:mb-6">
+      <div
+        class="flex gap-1 p-1 rounded-xl min-w-max sm:min-w-0"
+        style="background: var(--color-border);"
+      >
+        {#each tabs as tab}
+          <button
+            class="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 touch-target"
+            style="
+              background: {activeTab === tab.id ? 'var(--color-surface)' : 'transparent'};
+              color: {activeTab === tab.id ? 'var(--color-text)' : 'var(--color-text-subtle)'};
+              box-shadow: {activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'};
+            "
+            onclick={() => (activeTab = tab.id)}
+          >
+            <span>{tab.icon}</span>
+            <span>{tab.label}</span>
+          </button>
+        {/each}
+      </div>
     </div>
 
     {#if $loadingBudget}
@@ -105,18 +102,18 @@
     {:else}
       <!-- ── OVERVIEW TAB ── -->
       {#if activeTab === 'overview'}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <!-- Summary Cards row -->
-          <div class="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             {#each [{ label: 'Budget', value: $activePeriod ? Number($activePeriod.total_budget) : 0, icon: '🎯', color: '#7c3aed' }, { label: 'Spent', value: $totalSpent, icon: '💸', color: spentPct > 90 ? '#ef4444' : '#7c3aed' }, { label: 'Income', value: $totalIncome, icon: '📥', color: '#10b981' }, { label: 'Remaining', value: $remainingBudget, icon: '✅', color: $remainingBudget >= 0 ? '#10b981' : '#ef4444' }] as card}
               <div
-                class="rounded-2xl p-4"
+                class="rounded-2xl p-3 sm:p-4"
                 style="background: var(--color-surface); border: 1px solid var(--color-border);"
               >
                 <p class="text-xs mb-1" style="color: var(--color-text-subtle);">
                   <span class="mr-1">{card.icon}</span>{card.label}
                 </p>
-                <p class="text-xl font-bold" style="color: {card.color};">
+                <p class="text-base sm:text-xl font-bold" style="color: {card.color};">
                   {formatCurrency(card.value, $userCurrency)}
                 </p>
               </div>
@@ -125,68 +122,57 @@
 
           <!-- Donut chart -->
           <div
-            class="rounded-2xl p-5"
+            class="rounded-2xl p-4 sm:p-5"
             style="background: var(--color-surface); border: 1px solid var(--color-border);"
           >
             <h3 class="text-sm font-semibold mb-4" style="color: var(--color-text);">
               Spending Breakdown
             </h3>
-            <div class="flex items-center gap-6">
-              <SpendingPieChart segments={donutSegments} size={200} innerRadius={60} />
-              <div class="flex-1 min-w-0 space-y-2">
+            <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+              <div class="flex-shrink-0">
+                <SpendingPieChart segments={donutSegments} size={180} innerRadius={54} />
+              </div>
+              <div class="flex-1 min-w-0 w-full space-y-2">
                 {#each $activeCategoryBreakdown.slice(0, 6) as cat}
                   <div class="flex items-center gap-2">
                     <div
                       class="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style="background: {cat.color};"
                     ></div>
-                    <span class="text-xs truncate flex-1" style="color: var(--color-text);"
+                    <span class="text-xs flex-1 truncate" style="color: var(--color-text-muted);"
                       >{cat.name}</span
                     >
                     <span
-                      class="text-xs font-medium flex-shrink-0"
-                      style="color: var(--color-text-subtle);">{cat.percentage.toFixed(1)}%</span
+                      class="text-xs font-semibold flex-shrink-0"
+                      style="color: var(--color-text);">{cat.percentage.toFixed(1)}%</span
                     >
                   </div>
                 {/each}
-                {#if $activeCategoryBreakdown.length === 0}
-                  <p class="text-xs" style="color: var(--color-text-subtle);">No expense data</p>
-                {/if}
               </div>
             </div>
           </div>
 
           <!-- Spending trend -->
           <div
-            class="rounded-2xl p-5"
+            class="rounded-2xl p-4 sm:p-5"
             style="background: var(--color-surface); border: 1px solid var(--color-border);"
           >
             <h3 class="text-sm font-semibold mb-4" style="color: var(--color-text);">
-              Spending Trend
+              Cumulative Spending
             </h3>
-            <SpendingTrendChart points={$spendingTrend} currency={$userCurrency} />
+            <SpendingTrendChart data={$spendingTrend} currency={$userCurrency} />
           </div>
 
-          <!-- Period health -->
+          <!-- Budget usage bar -->
           <div
-            class="md:col-span-2 rounded-2xl p-5"
+            class="md:col-span-2 rounded-2xl p-4 sm:p-5"
             style="background: var(--color-surface); border: 1px solid var(--color-border);"
           >
-            <h3 class="text-sm font-semibold mb-4" style="color: var(--color-text);">
-              Budget Health
-            </h3>
-            <div class="flex items-center gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div class="flex-1">
-                <div
-                  class="flex justify-between text-xs mb-1"
-                  style="color: var(--color-text-subtle);"
-                >
-                  <span>0%</span>
-                  <span class="font-semibold" style="color: var(--color-text);"
-                    >{spentPct.toFixed(1)}% used</span
-                  >
-                  <span>100%</span>
-                </div>
+                <p class="text-sm font-semibold mb-2" style="color: var(--color-text);">
+                  Budget Usage
+                </p>
                 <div
                   class="h-3 rounded-full overflow-hidden"
                   style="background: var(--color-border);"
@@ -203,13 +189,24 @@
                     "
                   ></div>
                 </div>
+                <p class="text-xs mt-1.5" style="color: var(--color-text-subtle);">
+                  {formatCurrency($totalSpent, $userCurrency)} of {formatCurrency(
+                    $activePeriod ? Number($activePeriod.total_budget) + $totalIncome : 0,
+                    $userCurrency
+                  )} ({spentPct.toFixed(1)}%)
+                </p>
               </div>
               <div
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap"
-                style="
-                  background: {spentPct > 100 ? '#fef2f2' : spentPct > 85 ? '#fff7ed' : '#f5f3ff'};
-                  color: {spentPct > 100 ? '#b91c1c' : spentPct > 85 ? '#c2410c' : '#6d28d9'};
-                "
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap self-start sm:self-center"
+                style="background: {spentPct > 100
+                  ? '#fef2f2'
+                  : spentPct > 85
+                    ? '#fff7ed'
+                    : '#f5f3ff'}; color: {spentPct > 100
+                  ? '#b91c1c'
+                  : spentPct > 85
+                    ? '#c2410c'
+                    : '#6d28d9'};"
               >
                 {spentPct > 100
                   ? '🚨 Over Budget'
@@ -223,65 +220,66 @@
 
         <!-- ── SPENDING BREAKDOWN TAB ── -->
       {:else if activeTab === 'breakdown'}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Pie chart full view -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div
-            class="rounded-2xl p-5 flex flex-col items-center"
+            class="rounded-2xl p-4 sm:p-5 flex flex-col items-center"
             style="background: var(--color-surface); border: 1px solid var(--color-border);"
           >
             <h3 class="text-sm font-semibold mb-4 self-start" style="color: var(--color-text);">
               Expense Distribution
             </h3>
-            <SpendingPieChart segments={donutSegments} size={240} innerRadius={72} />
+            <SpendingPieChart segments={donutSegments} size={200} innerRadius={60} />
             <p class="text-xs mt-3" style="color: var(--color-text-subtle);">
               Hover slices for details
             </p>
           </div>
 
-          <!-- Category list -->
           <div
-            class="rounded-2xl p-5"
+            class="rounded-2xl p-4 sm:p-5"
             style="background: var(--color-surface); border: 1px solid var(--color-border);"
           >
             <h3 class="text-sm font-semibold mb-4" style="color: var(--color-text);">
               By Category
             </h3>
             {#if $activeCategoryBreakdown.length === 0}
-              <div
-                class="flex flex-col items-center justify-center py-12"
-                style="color: var(--color-text-subtle);"
-              >
-                <span class="text-4xl mb-2">🥧</span>
-                <p class="text-sm">No expense transactions yet</p>
-              </div>
+              <p class="text-sm text-center py-8" style="color: var(--color-text-subtle);">
+                No expense data yet
+              </p>
             {:else}
               <div class="space-y-3">
                 {#each $activeCategoryBreakdown as cat}
-                  <div>
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="text-base">{cat.icon}</span>
-                      <span class="text-sm flex-1 font-medium" style="color: var(--color-text);"
-                        >{cat.name}</span
-                      >
-                      <span class="text-sm font-bold" style="color: {cat.color};">
-                        {formatCurrency(cat.amount, $userCurrency)}
-                      </span>
-                      <span
-                        class="text-xs w-10 text-right"
-                        style="color: var(--color-text-subtle);"
-                      >
-                        {cat.percentage.toFixed(1)}%
-                      </span>
-                    </div>
+                  <div class="flex items-center gap-3">
                     <div
-                      class="h-2 rounded-full overflow-hidden"
-                      style="background: var(--color-border);"
+                      class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style="background: {cat.color}18;"
                     >
-                      <div
-                        class="h-full rounded-full transition-all duration-700"
-                        style="width: {cat.percentage}%; background: {cat.color};"
-                      ></div>
+                      {cat.icon}
                     </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex justify-between items-center mb-1">
+                        <span
+                          class="text-xs font-medium truncate"
+                          style="color: var(--color-text-muted);">{cat.name}</span
+                        >
+                        <span
+                          class="text-xs font-bold ml-2 flex-shrink-0"
+                          style="color: {cat.color};"
+                          >{formatCurrency(cat.amount, $userCurrency)}</span
+                        >
+                      </div>
+                      <div
+                        class="h-1.5 rounded-full overflow-hidden"
+                        style="background: var(--color-border);"
+                      >
+                        <div
+                          class="h-full rounded-full"
+                          style="width: {cat.percentage}%; background: {cat.color};"
+                        ></div>
+                      </div>
+                    </div>
+                    <span class="text-xs flex-shrink-0" style="color: var(--color-text-subtle);"
+                      >{cat.percentage.toFixed(1)}%</span
+                    >
                   </div>
                 {/each}
               </div>
@@ -291,95 +289,50 @@
 
         <!-- ── BUDGET VS ACTUAL TAB ── -->
       {:else if activeTab === 'budget'}
-        <div class="grid grid-cols-1 gap-6">
-          <div
-            class="rounded-2xl p-5"
-            style="background: var(--color-surface); border: 1px solid var(--color-border);"
-          >
-            <h3 class="text-sm font-semibold mb-1" style="color: var(--color-text);">
-              Spending per Category
-            </h3>
-            <p class="text-xs mb-5" style="color: var(--color-text-subtle);">
-              Thick bar = actual spent. Thin bar = proportional budget share.
-            </p>
-            <BudgetVsActualChart items={$budgetVsActual} currency={$userCurrency} />
-          </div>
-
-          <!-- Total summary -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div
-              class="rounded-2xl p-4 text-center"
-              style="background: var(--color-surface); border: 1px solid var(--color-border);"
-            >
-              <p class="text-xs mb-1" style="color: var(--color-text-subtle);">Total Budget</p>
-              <p class="text-xl font-bold" style="color: #7c3aed;">
-                {$activePeriod
-                  ? formatCurrency(Number($activePeriod.total_budget), $userCurrency)
-                  : '—'}
-              </p>
-            </div>
-            <div
-              class="rounded-2xl p-4 text-center"
-              style="background: var(--color-surface); border: 1px solid var(--color-border);"
-            >
-              <p class="text-xs mb-1" style="color: var(--color-text-subtle);">Total Spent</p>
-              <p
-                class="text-xl font-bold"
-                style="color: {$totalSpent >
-                ($activePeriod ? Number($activePeriod.total_budget) : 0)
-                  ? '#ef4444'
-                  : '#7c3aed'};"
-              >
-                {formatCurrency($totalSpent, $userCurrency)}
-              </p>
-            </div>
-            <div
-              class="rounded-2xl p-4 text-center"
-              style="background: var(--color-surface); border: 1px solid var(--color-border);"
-            >
-              <p class="text-xs mb-1" style="color: var(--color-text-subtle);">
-                Categories Tracked
-              </p>
-              <p class="text-xl font-bold" style="color: var(--color-text);">
-                {$budgetVsActual.length}
-              </p>
-            </div>
-          </div>
+        <div
+          class="rounded-2xl p-4 sm:p-5"
+          style="background: var(--color-surface); border: 1px solid var(--color-border);"
+        >
+          <h3 class="text-sm font-semibold mb-1" style="color: var(--color-text);">
+            Budget Allocation vs Actual Spending
+          </h3>
+          <p class="text-xs mb-5" style="color: var(--color-text-subtle);">
+            Proportional budget share vs what you actually spent per category
+          </p>
+          <BudgetVsActualChart data={$budgetVsActual} currency={$userCurrency} />
         </div>
 
         <!-- ── SAVINGS TAB ── -->
       {:else if activeTab === 'savings'}
-        <div class="grid grid-cols-1 gap-6">
+        <div class="space-y-4 sm:space-y-6">
           <div
-            class="rounded-2xl p-5"
+            class="rounded-2xl p-4 sm:p-5"
             style="background: var(--color-surface); border: 1px solid var(--color-border);"
           >
             <h3 class="text-sm font-semibold mb-1" style="color: var(--color-text);">
               Savings Tracker
             </h3>
             <p class="text-xs mb-5" style="color: var(--color-text-subtle);">
-              Ghost bar = budget. Solid bar = spent. Green dot = net savings.
+              Budget vs spending vs savings per period
             </p>
             <SavingsTracker data={$savingsData} currency={$userCurrency} />
           </div>
 
-          <!-- Historical savings table -->
           {#if $savingsData.length > 0}
             <div
-              class="rounded-2xl p-5"
+              class="rounded-2xl p-4 sm:p-5"
               style="background: var(--color-surface); border: 1px solid var(--color-border);"
             >
               <h3 class="text-sm font-semibold mb-4" style="color: var(--color-text);">
-                Period History
+                Savings History
               </h3>
               <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+                <table class="w-full text-sm" style="min-width: 480px;">
                   <thead>
                     <tr class="text-xs" style="color: var(--color-text-subtle);">
                       <th class="text-left pb-3 font-medium">Period</th>
                       <th class="text-right pb-3 font-medium">Budget</th>
                       <th class="text-right pb-3 font-medium">Spent</th>
-                      <th class="text-right pb-3 font-medium">Income</th>
                       <th class="text-right pb-3 font-medium">Net Saved</th>
                       <th class="text-right pb-3 font-medium">Rate</th>
                     </tr>
@@ -393,16 +346,8 @@
                         <td class="py-2.5 text-right" style="color: var(--color-text-subtle);"
                           >{formatCurrency(row.budget, $userCurrency)}</td
                         >
-                        <td
-                          class="py-2.5 text-right"
-                          style="color: {row.totalSpent > row.budget
-                            ? '#ef4444'
-                            : 'var(--color-text-subtle)'};"
-                        >
-                          {formatCurrency(row.totalSpent, $userCurrency)}
-                        </td>
-                        <td class="py-2.5 text-right" style="color: #10b981;"
-                          >{formatCurrency(row.totalIncome, $userCurrency)}</td
+                        <td class="py-2.5 text-right" style="color: var(--color-text-subtle);"
+                          >{formatCurrency(row.totalSpent, $userCurrency)}</td
                         >
                         <td
                           class="py-2.5 text-right font-semibold"
@@ -413,18 +358,15 @@
                         <td class="py-2.5 text-right">
                           <span
                             class="px-2 py-0.5 rounded-full text-xs font-semibold"
-                            style="
-                              background: {row.savingsRate >= 20
+                            style="background: {row.savingsRate >= 20
                               ? '#f0fdf4'
                               : row.savingsRate >= 0
                                 ? '#f5f3ff'
-                                : '#fef2f2'};
-                              color: {row.savingsRate >= 20
+                                : '#fef2f2'}; color: {row.savingsRate >= 20
                               ? '#15803d'
                               : row.savingsRate >= 0
                                 ? '#6d28d9'
-                                : '#b91c1c'};
-                            "
+                                : '#b91c1c'};"
                           >
                             {row.savingsRate.toFixed(1)}%
                           </span>
@@ -440,9 +382,9 @@
 
         <!-- ── PERIOD COMPARISON TAB ── -->
       {:else if activeTab === 'comparison'}
-        <div class="grid grid-cols-1 gap-6">
+        <div class="space-y-4 sm:space-y-6">
           <div
-            class="rounded-2xl p-5"
+            class="rounded-2xl p-4 sm:p-5"
             style="background: var(--color-surface); border: 1px solid var(--color-border);"
           >
             <h3 class="text-sm font-semibold mb-1" style="color: var(--color-text);">
@@ -454,17 +396,16 @@
             <PeriodComparison data={$periodComparison} currency={$userCurrency} />
           </div>
 
-          <!-- Comparison table -->
           {#if $periodComparison.length > 0}
             <div
-              class="rounded-2xl p-5"
+              class="rounded-2xl p-4 sm:p-5"
               style="background: var(--color-surface); border: 1px solid var(--color-border);"
             >
               <h3 class="text-sm font-semibold mb-4" style="color: var(--color-text);">
                 Period Comparison Table
               </h3>
               <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+                <table class="w-full text-sm" style="min-width: 520px;">
                   <thead>
                     <tr class="text-xs" style="color: var(--color-text-subtle);">
                       <th class="text-left pb-3 font-medium">Period</th>
@@ -489,33 +430,28 @@
                           style="color: {row.totalSpent > row.budget
                             ? '#ef4444'
                             : 'var(--color-text-subtle)'};"
+                          >{formatCurrency(row.totalSpent, $userCurrency)}</td
                         >
-                          {formatCurrency(row.totalSpent, $userCurrency)}
-                        </td>
                         <td class="py-2.5 text-right" style="color: #10b981;"
                           >{formatCurrency(row.totalIncome, $userCurrency)}</td
                         >
                         <td
                           class="py-2.5 text-right font-semibold"
                           style="color: {row.remaining >= 0 ? '#10b981' : '#ef4444'};"
+                          >{formatCurrency(row.remaining, $userCurrency)}</td
                         >
-                          {formatCurrency(row.remaining, $userCurrency)}
-                        </td>
                         <td class="py-2.5 text-right">
                           <span
                             class="px-2 py-0.5 rounded-full text-xs font-semibold"
-                            style="
-                              background: {row.utilizationPct > 100
+                            style="background: {row.utilizationPct > 100
                               ? '#fef2f2'
                               : row.utilizationPct > 85
                                 ? '#fff7ed'
-                                : '#f5f3ff'};
-                              color: {row.utilizationPct > 100
+                                : '#f5f3ff'}; color: {row.utilizationPct > 100
                               ? '#b91c1c'
                               : row.utilizationPct > 85
                                 ? '#c2410c'
-                                : '#6d28d9'};
-                            "
+                                : '#6d28d9'};"
                           >
                             {row.utilizationPct.toFixed(0)}%
                           </span>

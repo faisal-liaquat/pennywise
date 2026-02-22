@@ -8,10 +8,14 @@
 </script>
 
 <AppLayout>
-  <div class="p-8">
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
-      <p class="text-sm text-gray-500 mt-0.5">Manage your account preferences</p>
+  <div class="page-wrap page-mobile-pad">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Settings</h1>
+        <p class="text-sm mt-0.5" style="color: var(--color-text-subtle);">
+          Manage your account preferences
+        </p>
+      </div>
     </div>
 
     <div class="max-w-xl">

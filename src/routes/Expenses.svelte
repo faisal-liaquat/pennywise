@@ -38,15 +38,20 @@
 </script>
 
 <AppLayout>
-  <div class="p-8">
-    <div class="flex items-center justify-between mb-8">
+  <div class="page-wrap page-mobile-pad">
+    <!-- Header -->
+    <div class="page-header">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Transactions</h1>
-        <p class="text-sm text-gray-500 mt-0.5">
+        <h1 class="page-title">Transactions</h1>
+        <p class="text-sm mt-0.5" style="color: var(--color-text-subtle);">
           {#if $activePeriod}{$activePeriod.name}{:else}No active period{/if}
         </p>
       </div>
-      <button class="btn-primary" onclick={() => (showModal = true)} disabled={!$activePeriod}>
+      <button
+        class="btn-primary touch-target w-full xs:w-auto"
+        onclick={() => (showModal = true)}
+        disabled={!$activePeriod}
+      >
         <svg
           width="16"
           height="16"
@@ -62,12 +67,20 @@
     </div>
 
     <!-- Filter Tabs -->
-    <div class="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6">
+    <div
+      class="flex gap-1 p-1 rounded-xl w-full xs:w-fit mb-6"
+      style="background-color: var(--color-border);"
+    >
       {#each [['all', 'All'], ['expense', 'Expenses'], ['income', 'Income']] as [val, label]}
         <button
-          class="px-5 py-2 rounded-lg text-sm font-medium transition {filterType === val
-            ? 'bg-white text-gray-900 shadow-sm'
-            : 'text-gray-500'}"
+          class="flex-1 xs:flex-none px-4 py-2 rounded-lg text-sm font-medium transition touch-target"
+          style="background: {filterType === val
+            ? 'var(--color-surface)'
+            : 'transparent'}; color: {filterType === val
+            ? 'var(--color-text)'
+            : 'var(--color-text-subtle)'}; box-shadow: {filterType === val
+            ? '0 1px 3px rgba(0,0,0,0.1)'
+            : 'none'};"
           onclick={() => (filterType = val)}>{label}</button
         >
       {/each}
@@ -93,9 +106,8 @@
         <div class="space-y-0">
           {#each filtered as tx, i}
             <div
-              class="flex items-center gap-4 py-3.5 group {i !== 0
-                ? 'border-t border-gray-50'
-                : ''}"
+              class="flex items-center gap-3 sm:gap-4 py-3.5 group {i !== 0 ? 'border-t' : ''}"
+              style="border-color: var(--color-border);"
             >
               <div
                 class="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
@@ -104,24 +116,24 @@
                 {tx.categories?.icon || '💰'}
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-sm font-semibold text-gray-900">
+                <p class="text-sm font-semibold truncate" style="color: var(--color-text);">
                   {tx.description || tx.categories?.name || 'Transaction'}
                 </p>
-                <p class="text-xs text-gray-400">
+                <p class="text-xs" style="color: var(--color-text-subtle);">
                   {formatDate(tx.date)} · {tx.categories?.name || ''}
                 </p>
               </div>
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                 <span
-                  class="text-base font-bold {tx.type === 'expense'
-                    ? 'text-red-600'
-                    : 'text-green-600'}"
+                  class="text-sm sm:text-base font-bold"
+                  style="color: {tx.type === 'expense' ? '#ef4444' : '#22c55e'};"
                 >
                   {tx.type === 'expense' ? '−' : '+'}{formatCurrency(tx.amount, $userCurrency)}
                 </span>
                 <button
                   aria-label="Delete transaction"
-                  class="opacity-0 group-hover:opacity-100 transition p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50"
+                  class="opacity-0 group-hover:opacity-100 transition p-1.5 rounded-lg hover:text-red-500 touch-target"
+                  style="color: var(--color-text-subtle);"
                   onclick={() => handleDelete(tx.id)}
                 >
                   <svg
