@@ -11,6 +11,7 @@
   import Categories from './routes/Categories.svelte'
   import Expenses from './routes/Expenses.svelte'
   import Settings from './routes/Settings.svelte'
+  import Analytics from './routes/Analytics.svelte'
 
   let currentRoute = 'loading'
   let showResetPassword = false
@@ -45,7 +46,7 @@
           showResetPassword = true
           currentRoute = 'reset-password'
         } else {
-          window.history.replaceState({}, '', '/#/reset-password')
+          window.history.replaceState({}, '', '/')
           showResetPassword = true
           currentRoute = 'reset-password'
         }
@@ -58,55 +59,66 @@
     isInitialized = true
 
     const hash = window.location.hash.slice(1) || '/'
-    currentRoute = getRouteFromHash(hash)
+    if (
+      hash === '/' ||
+      hash === '' ||
+      (!$authStore.user && hash !== '/login' && hash !== '/register' && hash !== '/forgot-password')
+    ) {
+      currentRoute = $authStore.user ? '/dashboard' : '/login'
+      window.location.hash = currentRoute
+    } else {
+      currentRoute = hash
+    }
 
-    window.addEventListener('hashchange', handleHashChange)
+    window.addEventListener('hashchange', () => {
+      currentRoute = window.location.hash.slice(1) || '/login'
+    })
   })
 
-  function handleHashChange() {
-    const hash = window.location.hash.slice(1) || '/'
-    currentRoute = getRouteFromHash(hash)
-    showResetPassword = false
-    updateSuccess = false
+  function getComponent(route) {
+    if (!isInitialized) return null
+    if (showResetPassword) return null
+
+    switch (route) {
+      case '/login':
+        return Login
+      case '/register':
+        return Register
+      case '/forgot-password':
+        return ForgotPassword
+      case '/dashboard':
+        return $authStore.user ? Dashboard : Login
+      case '/budget':
+        return $authStore.user ? BudgetPeriods : Login
+      case '/expenses':
+        return $authStore.user ? Expenses : Login
+      case '/categories':
+        return $authStore.user ? Categories : Login
+      case '/analytics':
+        return $authStore.user ? Analytics : Login
+      case '/settings':
+        return $authStore.user ? Settings : Login
+      default:
+        return $authStore.user ? Dashboard : Login
+    }
   }
 
-  function getRouteFromHash(hash) {
-    if (hash.startsWith('/login')) return 'login'
-    if (hash.startsWith('/register')) return 'register'
-    if (hash.startsWith('/forgot-password')) return 'forgot-password'
-    if (hash.startsWith('/reset-password')) return 'reset-password'
-    if (hash.startsWith('/dashboard')) return 'dashboard'
-    if (hash.startsWith('/budget')) return 'budget'
-    if (hash.startsWith('/categories')) return 'categories'
-    if (hash.startsWith('/expenses')) return 'expenses'
-    if (hash.startsWith('/settings')) return 'settings'
-
-    if ($authStore.user) return 'dashboard'
-    return 'login'
-  }
-
-  const PROTECTED_ROUTES = ['dashboard', 'budget', 'categories', 'expenses', 'settings']
-
-  function validatePasswordForm() {
+  async function handleUpdatePassword() {
     passwordErrors = {}
     if (!newPassword) {
       passwordErrors.newPassword = 'Password is required'
-    } else if (newPassword.length < 6) {
+      return
+    }
+    if (newPassword.length < 6) {
       passwordErrors.newPassword = 'Password must be at least 6 characters'
+      return
     }
-    if (!confirmPassword) {
-      passwordErrors.confirmPassword = 'Please confirm your password'
-    } else if (newPassword !== confirmPassword) {
+    if (newPassword !== confirmPassword) {
       passwordErrors.confirmPassword = 'Passwords do not match'
+      return
     }
-    return Object.keys(passwordErrors).length === 0
-  }
 
-  async function handlePasswordUpdate() {
-    if (!validatePasswordForm()) return
     isUpdating = true
-    resetPasswordError = ''
-
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     isUpdating = false
 
@@ -114,336 +126,327 @@
       resetPasswordError = error.message
     } else {
       updateSuccess = true
-      newPassword = ''
-      confirmPassword = ''
-      setTimeout(() => {
-        authStore.initialize().then(() => {
-          window.location.hash = '/dashboard'
-          showResetPassword = false
-        })
+      setTimeout(async () => {
+        showResetPassword = false
+        await authStore.initialize()
+        currentRoute = '/dashboard'
+        window.location.hash = '/dashboard'
       }, 2000)
-    }
-  }
-
-  function goToForgotPassword() {
-    window.location.hash = '/forgot-password'
-    showResetPassword = false
-  }
-
-  function goToLogin() {
-    window.location.hash = '/login'
-    showResetPassword = false
-  }
-
-  $: {
-    if (
-      isInitialized &&
-      PROTECTED_ROUTES.includes(currentRoute) &&
-      !$authStore.user &&
-      !$authStore.loading &&
-      !showResetPassword
-    ) {
-      window.location.hash = '/login'
-      currentRoute = 'login'
     }
   }
 </script>
 
-{#if !isInitialized || (currentRoute === 'loading' && !showResetPassword)}
-  <div class="loading-screen">
-    <div class="spinner"></div>
-  </div>
-{:else if showResetPassword || currentRoute === 'reset-password'}
-  <div class="auth-container">
-    <div class="auth-card">
-      <div class="auth-header">
-        <div class="logo">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="#16a34a" stroke-width="2" />
-            <path d="M12 6v6l4 2" stroke="#16a34a" stroke-width="2" stroke-linecap="round" />
-          </svg>
-        </div>
-        <h1 class="auth-title">Set new password</h1>
-        <p class="auth-subtitle">Enter your new password below</p>
-      </div>
-
-      {#if resetPasswordError && !$authStore.session}
-        <div class="alert alert-error">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
-            <path d="M12 8v4m0 4h.01" stroke="currentColor" stroke-width="2" />
-          </svg>
-          {resetPasswordError}
-        </div>
-        <div class="button-group">
-          <button class="btn btn-primary btn-full" on:click={goToForgotPassword}>
-            Request New Reset Link
-          </button>
-          <button class="btn btn-outline btn-full" on:click={goToLogin}>Back to Login</button>
-        </div>
-      {:else if updateSuccess}
-        <div class="alert alert-success">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
-            <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" />
-          </svg>
-          Password updated successfully! Redirecting to dashboard...
-        </div>
-      {:else}
-        <form on:submit|preventDefault={handlePasswordUpdate}>
-          {#if resetPasswordError}
-            <div class="alert alert-error">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
-                <path d="M12 8v4m0 4h.01" stroke="currentColor" stroke-width="2" />
-              </svg>
-              {resetPasswordError}
-            </div>
-          {/if}
-
-          <div class="input-wrapper">
-            <label for="newPassword" class="input-label">New Password *</label>
-            <input
-              type="password"
-              id="newPassword"
-              bind:value={newPassword}
-              class="input {passwordErrors.newPassword ? 'input-error' : ''}"
-              placeholder="Enter new password"
-              autocomplete="new-password"
-            />
-            {#if passwordErrors.newPassword}
-              <p class="error-message">{passwordErrors.newPassword}</p>
-            {/if}
-          </div>
-
-          <div class="input-wrapper">
-            <label for="confirmPassword" class="input-label">Confirm Password *</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              bind:value={confirmPassword}
-              class="input {passwordErrors.confirmPassword ? 'input-error' : ''}"
-              placeholder="Confirm new password"
-              autocomplete="new-password"
-            />
-            {#if passwordErrors.confirmPassword}
-              <p class="error-message">{passwordErrors.confirmPassword}</p>
-            {/if}
-          </div>
-
-          <button type="submit" class="btn btn-primary btn-full" disabled={isUpdating}>
-            {isUpdating ? 'Updating...' : 'Update Password'}
-          </button>
-        </form>
-
-        <div class="auth-footer">
-          <button type="button" class="link-button" on:click={goToLogin}>← Back to login</button>
-        </div>
-      {/if}
+{#if !isInitialized}
+  <!-- Loading splash -->
+  <div
+    class="min-h-screen flex items-center justify-center"
+    style="background: var(--color-bg, #f3f0ff);"
+  >
+    <div class="flex flex-col items-center gap-4">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <rect width="48" height="48" rx="14" fill="#7c3aed" />
+        <path
+          d="M24 12C17.373 12 12 17.373 12 24s5.373 12 12 12 12-5.373 12-12S30.627 12 24 12z"
+          fill="none"
+          stroke="white"
+          stroke-width="2"
+        />
+        <path
+          d="M24 18v6l4 3"
+          stroke="white"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <circle cx="24" cy="24" r="2" fill="white" />
+      </svg>
+      <div
+        class="w-6 h-6 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin"
+      ></div>
     </div>
   </div>
-{:else if currentRoute === 'login'}
-  <Login />
-{:else if currentRoute === 'register'}
-  <Register />
-{:else if currentRoute === 'forgot-password'}
-  <ForgotPassword />
-{:else if currentRoute === 'dashboard'}
-  <Dashboard />
-{:else if currentRoute === 'budget'}
-  <BudgetPeriods />
-{:else if currentRoute === 'categories'}
-  <Categories />
-{:else if currentRoute === 'expenses'}
-  <Expenses />
-{:else if currentRoute === 'settings'}
-  <Settings />
+{:else if showResetPassword}
+  <!-- Password reset form -->
+  <div class="auth-bg">
+    <div class="auth-panel">
+      <div class="panel-content">
+        <div class="panel-logo">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect width="48" height="48" rx="14" fill="rgba(255,255,255,0.15)" />
+            <path
+              d="M24 12C17.373 12 12 17.373 12 24s5.373 12 12 12 12-5.373 12-12S30.627 12 24 12z"
+              fill="none"
+              stroke="white"
+              stroke-width="2"
+            />
+            <path
+              d="M24 18v6l4 3"
+              stroke="white"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <circle cx="24" cy="24" r="2" fill="white" />
+          </svg>
+        </div>
+        <h2 class="panel-title">Set your new password.</h2>
+        <p class="panel-subtitle">Choose something strong and memorable.</p>
+      </div>
+    </div>
+
+    <div class="auth-form-side">
+      <div class="auth-form-container">
+        <div class="auth-form-header">
+          <h1 class="auth-title">Reset Password</h1>
+          <p class="auth-subtitle">Enter your new password below</p>
+        </div>
+
+        {#if updateSuccess}
+          <div class="success-message">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>Password updated! Redirecting to dashboard…</span>
+          </div>
+        {:else}
+          {#if resetPasswordError && !passwordErrors.newPassword}
+            <div class="error-message">{resetPasswordError}</div>
+          {/if}
+
+          <div class="form-group">
+            <label class="form-label" for="new-password">New Password</label>
+            <input
+              id="new-password"
+              type="password"
+              class="form-input {passwordErrors.newPassword ? 'error' : ''}"
+              placeholder="At least 6 characters"
+              bind:value={newPassword}
+            />
+            {#if passwordErrors.newPassword}
+              <span class="field-error">{passwordErrors.newPassword}</span>
+            {/if}
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="confirm-password">Confirm Password</label>
+            <input
+              id="confirm-password"
+              type="password"
+              class="form-input {passwordErrors.confirmPassword ? 'error' : ''}"
+              placeholder="Repeat your password"
+              bind:value={confirmPassword}
+            />
+            {#if passwordErrors.confirmPassword}
+              <span class="field-error">{passwordErrors.confirmPassword}</span>
+            {/if}
+          </div>
+
+          <button
+            class="btn-auth-primary w-full"
+            onclick={handleUpdatePassword}
+            disabled={isUpdating}
+          >
+            {#if isUpdating}
+              <span class="btn-spinner"></span>
+              Updating…
+            {:else}
+              Update Password
+            {/if}
+          </button>
+        {/if}
+      </div>
+    </div>
+  </div>
+{:else}
+  {@const Component = getComponent(currentRoute)}
+  {#if Component}
+    <svelte:component this={Component} />
+  {/if}
 {/if}
 
 <style>
-  .auth-container {
+  .auth-bg {
     min-height: 100vh;
+    display: flex;
+    background: var(--color-bg, #f3f0ff);
+  }
+
+  .auth-panel {
+    width: 420px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-    padding: 1rem;
+    padding: 3rem;
   }
 
-  .auth-card {
-    background: white;
-    border-radius: 1rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    padding: 2.5rem;
-    width: 100%;
-    max-width: 28rem;
+  @media (max-width: 768px) {
+    .auth-panel {
+      display: none;
+    }
   }
 
-  .auth-header {
-    text-align: center;
+  .panel-content {
+    color: white;
+  }
+
+  .panel-logo {
     margin-bottom: 2rem;
   }
 
-  .logo {
-    display: inline-flex;
+  .panel-title {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
     margin-bottom: 1rem;
+    color: white;
+  }
+
+  .panel-subtitle {
+    font-size: 0.95rem;
+    opacity: 0.8;
+    line-height: 1.6;
+    color: white;
+  }
+
+  .auth-form-side {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .auth-form-container {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .auth-form-header {
+    margin-bottom: 2rem;
   }
 
   .auth-title {
-    font-size: 1.875rem;
+    font-size: 1.75rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text, #1e1b4b);
     margin-bottom: 0.5rem;
   }
 
   .auth-subtitle {
-    color: #6b7280;
-    font-size: 1rem;
+    font-size: 0.875rem;
+    color: var(--color-text-subtle, #6b7280);
   }
 
-  .input-wrapper {
-    margin-bottom: 1rem;
+  .form-group {
+    margin-bottom: 1.25rem;
   }
 
-  .input-label {
+  .form-label {
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text, #374151);
     margin-bottom: 0.5rem;
   }
 
-  .input {
+  .form-input {
     width: 100%;
     padding: 0.75rem 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-    transition: all 0.2s;
-  }
-
-  .input:focus {
+    border: 1.5px solid var(--color-border, #e5e7eb);
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    background: var(--color-surface, white);
+    color: var(--color-text, #111827);
     outline: none;
-    border-color: #16a34a;
-    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+    transition: border-color 0.15s;
+    box-sizing: border-box;
   }
 
-  .input-error {
+  .form-input:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  }
+
+  .form-input.error {
     border-color: #ef4444;
   }
 
-  .error-message {
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
+  .field-error {
+    display: block;
+    font-size: 0.75rem;
     color: #ef4444;
+    margin-top: 0.25rem;
   }
 
-  .btn {
-    display: inline-flex;
+  .error-message {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  .success-message {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-auth-primary {
+    display: flex;
     align-items: center;
     justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
     padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    font-weight: 500;
-    border-radius: 0.5rem;
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    color: white;
     border: none;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition:
+      opacity 0.15s,
+      transform 0.15s;
+    margin-top: 0.5rem;
   }
 
-  .btn:disabled {
+  .btn-auth-primary:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  .btn-auth-primary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
 
-  .btn-primary {
-    background-color: #16a34a;
-    color: white;
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background-color: #15803d;
-  }
-
-  .btn-outline {
-    background-color: transparent;
-    color: #16a34a;
-    border: 1px solid #16a34a;
-  }
-
-  .btn-outline:hover:not(:disabled) {
-    background-color: #f0fdf4;
-  }
-
-  .btn-full {
-    width: 100%;
-  }
-
-  .button-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .link-button {
-    background: none;
-    border: none;
-    color: #16a34a;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    padding: 0;
-    transition: color 0.2s;
-  }
-
-  .link-button:hover {
-    color: #15803d;
-    text-decoration: underline;
-  }
-
-  .auth-footer {
-    text-align: center;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    margin-top: 1.5rem;
-  }
-
-  .alert {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .alert-error {
-    background-color: #fef2f2;
-    color: #991b1b;
-    border: 1px solid #fee2e2;
-  }
-
-  .alert-success {
-    background-color: #f0fdf4;
-    color: #166534;
-    border: 1px solid #bbf7d0;
-  }
-
-  .loading-screen {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  }
-
-  .spinner {
-    width: 3rem;
-    height: 3rem;
-    border: 3px solid #e5e7eb;
-    border-top-color: #16a34a;
+  .btn-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
   }
 
   @keyframes spin {
