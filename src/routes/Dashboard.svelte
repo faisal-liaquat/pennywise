@@ -90,11 +90,7 @@
   )
 
   const donutSegments = $derived(
-    categoryBreakdown.map((c) => ({
-      value: c.spent,
-      color: c.color || '#7c3aed',
-      label: c.name,
-    }))
+    categoryBreakdown.map((c) => ({ value: c.spent, color: c.color || '#7c3aed', label: c.name }))
   )
 
   const insightMessage = $derived(
@@ -135,14 +131,13 @@
   const expenseCount = $derived($transactions.filter((t) => t.type === 'expense').length)
   const avgPerTransaction = $derived(expenseCount > 0 ? $totalSpent / expenseCount : 0)
 
-  const formatNum = (n) => {
-    return new Intl.NumberFormat('en-US', {
+  const formatNum = (n) =>
+    new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: $userCurrency || 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(n)
-  }
 
   async function handleDeleteTransaction(id) {
     if (!confirm('Delete this transaction?')) return
@@ -156,11 +151,11 @@
 </script>
 
 <AppLayout>
-  <div class="p-6 lg:p-8 max-w-screen-xl mx-auto">
+  <div class="page-wrap page-mobile-pad">
     <!-- Header -->
-    <div class="flex items-start justify-between mb-8 fade-slide-in">
+    <div class="page-header fade-slide-in">
       <div>
-        <h1 class="text-2xl font-bold" style="color: var(--color-text);">Dashboard</h1>
+        <h1 class="page-title">Dashboard</h1>
         <p class="text-sm mt-1" style="color: var(--color-text-muted);">
           {#if $activePeriod}
             {$activePeriod.name} · {formatDate($activePeriod.start_date)} — {formatDate(
@@ -171,9 +166,12 @@
           {/if}
         </p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-shrink-0">
         {#if $activePeriod}
-          <button class="btn-primary text-sm" onclick={() => (showExpenseModal = true)}>
+          <button
+            class="btn-primary text-sm touch-target"
+            onclick={() => (showExpenseModal = true)}
+          >
             <svg
               width="15"
               height="15"
@@ -185,11 +183,12 @@
             >
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Add Transaction
+            <span class="hidden xs:inline">Add Transaction</span>
+            <span class="xs:hidden">Add</span>
           </button>
         {/if}
         <button
-          class="btn-secondary text-sm"
+          class="btn-secondary text-sm touch-target"
           onclick={() => {
             window.location.hash = '/budget'
           }}
@@ -206,11 +205,9 @@
         <Skeleton type="stat-card" count={1} />
         <Skeleton type="stat-card" count={1} />
       </div>
-      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
         <div class="lg:col-span-3">
-          <div class="card">
-            <Skeleton type="transaction-row" count={5} />
-          </div>
+          <div class="card"><Skeleton type="transaction-row" count={5} /></div>
         </div>
         <div class="lg:col-span-2 space-y-6">
           <Skeleton type="chart" count={1} />
@@ -229,16 +226,16 @@
       {#if insightMessage}
         {@const c = insightColorMap[insightMessage.tone]}
         <div
-          class="mb-6 flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm font-medium fade-slide-in"
+          class="mb-5 sm:mb-6 flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm font-medium fade-slide-in"
           style="background-color: {c.bg}; color: {c.text}; border-color: {c.border};"
         >
-          <span class="text-xl">{insightMessage.icon}</span>
+          <span class="text-xl flex-shrink-0">{insightMessage.icon}</span>
           <span>{insightMessage.text}</span>
         </div>
       {/if}
 
-      <!-- Stat Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <!-- Stat Cards: 1-col on xs, 3-col on sm+ -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-5 sm:mb-6">
         <!-- Total Budget -->
         <div class="card fade-slide-in" style="animation-delay: 0.05s;">
           <div class="flex items-start justify-between">
@@ -249,7 +246,10 @@
               >
                 Total Budget
               </p>
-              <p class="text-3xl font-extrabold tracking-tight" style="color: var(--color-text);">
+              <p
+                class="text-2xl sm:text-3xl font-extrabold tracking-tight"
+                style="color: var(--color-text);"
+              >
                 {formatNum($animatedBudget)}
               </p>
               <p class="text-xs mt-2" style="color: var(--color-text-subtle);">
@@ -294,13 +294,18 @@
                 Spent
               </p>
               <p
-                class="text-3xl font-extrabold tracking-tight"
+                class="text-2xl sm:text-3xl font-extrabold tracking-tight"
                 style="color: {spentPercent > 90 ? '#ef4444' : 'var(--color-text)'};"
               >
                 {formatNum($animatedSpent)}
               </p>
-              <div class="flex items-center gap-2 mt-2">
-                <div class="progress-bar flex-1 h-1.5">
+              <div class="mt-3">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-xs" style="color: var(--color-text-subtle);"
+                    >{spentPercent.toFixed(1)}% used</span
+                  >
+                </div>
+                <div class="progress-bar h-1.5">
                   <div
                     class="progress-fill h-1.5"
                     style="width: {Math.min(
@@ -309,12 +314,27 @@
                     )}%; background-color: {progressColor};"
                   ></div>
                 </div>
-                <span class="text-xs font-bold flex-shrink-0" style="color: {progressColor};">
-                  {spentPercent.toFixed(0)}%
-                </span>
               </div>
             </div>
-            <BudgetRing percent={spentPercent} size={60} thickness={7} />
+            <div
+              class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style="background-color: rgba(239,68,68,0.1);"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#ef4444"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" /><path
+                  d="M12 6v6l4 2"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -329,19 +349,14 @@
                 Remaining
               </p>
               <p
-                class="text-3xl font-extrabold tracking-tight"
+                class="text-2xl sm:text-3xl font-extrabold tracking-tight"
                 style="color: {$remainingBudget < 0 ? '#ef4444' : '#22c55e'};"
               >
                 {formatNum($animatedRemaining)}
               </p>
               <p class="text-xs mt-2" style="color: var(--color-text-subtle);">
-                {$remainingBudget < 0 ? '⚠️ Over budget' : '✓ Available to spend'}
+                {$remainingBudget >= 0 ? 'Available to spend' : 'Over budget'}
               </p>
-              {#if $totalIncome > 0}
-                <p class="text-xs mt-1" style="color: var(--color-text-subtle);">
-                  Includes {formatCurrency($totalIncome, $userCurrency)} income
-                </p>
-              {/if}
             </div>
             <div
               class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -373,8 +388,8 @@
         </div>
       </div>
 
-      <!-- Main content grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <!-- Budget Ring + main grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
         <!-- Left column: recent transactions -->
         <div class="lg:col-span-3">
           <div class="card fade-slide-in" style="animation-delay: 0.2s;">
@@ -402,7 +417,7 @@
               <div class="space-y-0.5">
                 {#each recentTransactions as tx}
                   <div
-                    class="tx-row flex items-center gap-3 px-3 py-2.5 rounded-xl group cursor-default"
+                    class="tx-row flex items-center gap-3 px-2 sm:px-3 py-2.5 rounded-xl group cursor-default"
                   >
                     <div
                       class="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
@@ -457,7 +472,7 @@
         </div>
 
         <!-- Right column: charts + stats -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="lg:col-span-2 space-y-4 lg:space-y-6">
           <!-- Spending Breakdown Chart -->
           <div class="card fade-slide-in" style="animation-delay: 0.25s;">
             <div class="flex items-center justify-between mb-4">
