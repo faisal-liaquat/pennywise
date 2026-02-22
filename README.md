@@ -2,9 +2,15 @@
 
 > A clean, minimalist personal finance tracker. Track budgets, expenses, and income across custom date periods — your way.
 
+![PennyWise Registration](docs/images/registration-preview.png)
 ![PennyWise Dashboard](docs/images/dashboard-preview.png)
+![PennyWise Budget Periods](docs/images/budgetperiods-preview.png)
+![PennyWise Transactions](docs/images/transactions-preview.png)
+![PennyWise Categories](docs/images/categories-preview.png)
+![PennyWise Analytics](docs/images/analytics-preview.png)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/pennywise)
+
+
 
 ---
 
@@ -164,21 +170,6 @@ Full audit: [docs/SECURITY.md](docs/SECURITY.md)
 
 ---
 
-## 📊 Completed Phases
-
-| Phase | Description                      | Status  |
-| ----- | -------------------------------- | ------- |
-| 1     | Project Setup & Configuration    | ✅ Done |
-| 2     | Database Design & Supabase Setup | ✅ Done |
-| 3     | Authentication UI                | ✅ Done |
-| 4     | Dashboard & Budget Management    | ✅ Done |
-| 5     | Transaction Management           | ✅ Done |
-| 6     | Analytics & Charts               | ✅ Done |
-| 7     | Security Audit & Polish          | ✅ Done |
-| 7.5   | Performance & Mobile             | ✅ Done |
-| 8     | Deployment Prep                  | ✅ Done |
-
----
 
 ## 🧰 Development Commands
 
@@ -207,4 +198,4 @@ MIT — feel free to use this as a base for your own finance tracker.
 
 ---
 
-Built with 💜 using Svelte + Supabase
+Built with 💜 using Svelte + Supabase by Faisal Liaquat :)
