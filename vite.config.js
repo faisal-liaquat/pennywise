@@ -1,13 +1,28 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
-// https://vite.dev/config/
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
 export default defineConfig({
   plugins: [svelte()],
   resolve: {
     alias: {
-      $lib: path.resolve('./src/lib'),
+      $lib: path.resolve(__dirname, './src/lib'),
     },
   },
+  build: {
+    sourcemap: false,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          supabase: ['@supabase/supabase-js'],
+          'date-fns': ['date-fns'],
+        },
+      },
+    },
+  },
+  envPrefix: 'VITE_',
 })
