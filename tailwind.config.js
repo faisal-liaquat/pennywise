@@ -4,6 +4,9 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      screens: {
+        xs: '375px',
+      },
       colors: {
         primary: {
           50: '#f5f3ff',
@@ -17,18 +20,6 @@ export default {
           800: '#5b21b6',
           900: '#4c1d95',
         },
-        surface: '#f3f0ff',
-      },
-      borderRadius: {
-        xl: '1rem',
-        '2xl': '1.5rem',
-      },
-      boxShadow: {
-        card: '0 2px 16px 0 rgba(124,58,237,0.07)',
-        'card-hover': '0 8px 32px 0 rgba(124,58,237,0.15)',
-      },
-      fontFamily: {
-        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
     },
   },
