@@ -1,5 +1,8 @@
 <script>
   import { addTransaction, loadTransactions, categories, activePeriod } from '$lib/stores/budget.js'
+  import { validateTransactionForm } from '$lib/utils/validators.js'
+  import { checkRateLimit, formatRemainingTime } from '$lib/utils/rateLimiter.js'
+  import { toast } from '$lib/stores/toast.js'
   import { format } from 'date-fns'
 
   let { onSuccess, onCancel, type: initialType = 'expense' } = $props()
@@ -10,8 +13,8 @@
   let description = $state('')
   let date = $state(format(new Date(), 'yyyy-MM-dd'))
   let loading = $state(false)
-  let error = $state('')
   let errors = $state({})
+  let rateLimitMessage = $state('')
 
   let initialized = false
   $effect(() => {
@@ -23,19 +26,32 @@
 
   const filteredCategories = $derived($categories.filter((c) => c.type === txType))
 
-  function validate() {
-    errors = {}
-    if (!category_id) errors.category_id = 'Please select a category'
-    if (!amount || Number(amount) <= 0) errors.amount = 'Amount must be greater than 0'
-    if (!date) errors.date = 'Date is required'
-    return Object.keys(errors).length === 0
-  }
-
   async function handleSubmit(event) {
     event.preventDefault()
-    if (!validate()) return
+
+    // Rate limiting — max 20 transactions per minute
+    const rateCheck = checkRateLimit('add-transaction', 20, 60_000)
+    if (!rateCheck.allowed) {
+      rateLimitMessage = `Too many submissions. Please wait ${formatRemainingTime(rateCheck.remainingMs)}.`
+      return
+    }
+    rateLimitMessage = ''
+
+    const { errors: validationErrors, isValid } = validateTransactionForm({
+      category_id,
+      amount,
+      date,
+      description,
+    })
+
+    if (!isValid) {
+      errors = validationErrors
+      return
+    }
+
+    errors = {}
     loading = true
-    error = ''
+
     try {
       await addTransaction({
         budget_period_id: $activePeriod?.id || null,
@@ -46,9 +62,10 @@
         date,
       })
       if ($activePeriod) await loadTransactions($activePeriod.id)
+      toast.success(`${txType === 'income' ? 'Income' : 'Expense'} added successfully`)
       onSuccess?.()
     } catch (err) {
-      error = err.message
+      toast.error(err.message || 'Failed to add transaction. Please try again.')
     } finally {
       loading = false
     }
@@ -57,22 +74,24 @@
   function switchType(newType) {
     txType = newType
     category_id = ''
+    errors = {}
   }
 </script>
 
-<form onsubmit={handleSubmit} class="space-y-4">
-  {#if error}
-    <div class="alert alert-error">{error}</div>
+<form onsubmit={handleSubmit} class="space-y-4" novalidate>
+  {#if rateLimitMessage}
+    <div class="alert alert-warning">{rateLimitMessage}</div>
   {/if}
 
   <!-- Type Toggle -->
-  <div class="flex gap-1 bg-gray-100 rounded-xl p-1">
+  <div class="flex gap-1 bg-gray-100 rounded-xl p-1" role="group" aria-label="Transaction type">
     <button
       type="button"
       class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all {txType === 'expense'
         ? 'bg-white text-red-600 shadow-sm'
         : 'text-gray-500'}"
       onclick={() => switchType('expense')}
+      aria-pressed={txType === 'expense'}
     >
       💸 Expense
     </button>
@@ -82,6 +101,7 @@
         ? 'bg-white text-green-600 shadow-sm'
         : 'text-gray-500'}"
       onclick={() => switchType('income')}
+      aria-pressed={txType === 'income'}
     >
       💰 Income
     </button>
@@ -95,9 +115,12 @@
       class="input text-lg font-semibold {errors.amount ? 'input-error' : ''}"
       type="number"
       min="0.01"
+      max="999999999"
       step="0.01"
       bind:value={amount}
       placeholder="0.00"
+      inputmode="decimal"
+      autocomplete="off"
     />
     {#if errors.amount}<p class="field-error">{errors.amount}</p>{/if}
   </div>
@@ -107,46 +130,23 @@
     <label class="label" for="tx-category">Category</label>
     {#if filteredCategories.length === 0}
       <p class="text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
-        No categories yet.
-        <button type="button" class="text-primary-600 font-medium" onclick={() => onCancel?.()}
-          >Go to Categories →</button
-        >
+        No categories yet. <a href="#/categories" class="text-primary-600 underline"
+          >Add one first</a
+        >.
       </p>
     {:else}
-      <div id="tx-category" class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+      <select
+        id="tx-category"
+        class="input {errors.category_id ? 'input-error' : ''}"
+        bind:value={category_id}
+      >
+        <option value="">— Select a category —</option>
         {#each filteredCategories as cat}
-          <button
-            type="button"
-            aria-label="Select category {cat.name}"
-            class="flex flex-col items-center gap-1 p-3 rounded-xl border-2 text-center transition-all {category_id ===
-            cat.id
-              ? 'border-primary-500 bg-primary-50'
-              : 'border-gray-100 bg-gray-50 hover:border-gray-200'}"
-            onclick={() => (category_id = cat.id)}
-          >
-            <span class="text-xl">{cat.icon}</span>
-            <span class="text-xs text-gray-700 font-medium leading-tight line-clamp-1"
-              >{cat.name}</span
-            >
-          </button>
+          <option value={cat.id}>{cat.icon || '📦'} {cat.name}</option>
         {/each}
-      </div>
-      {#if errors.category_id}<p class="field-error">{errors.category_id}</p>{/if}
+      </select>
     {/if}
-  </div>
-
-  <!-- Description -->
-  <div>
-    <label class="label" for="tx-desc">
-      Description <span class="text-gray-400 font-normal">(optional)</span>
-    </label>
-    <input
-      id="tx-desc"
-      class="input"
-      type="text"
-      bind:value={description}
-      placeholder="What was this for?"
-    />
+    {#if errors.category_id}<p class="field-error">{errors.category_id}</p>{/if}
   </div>
 
   <!-- Date -->
@@ -157,8 +157,30 @@
       class="input {errors.date ? 'input-error' : ''}"
       type="date"
       bind:value={date}
+      min="2000-01-01"
+      max="2100-12-31"
     />
     {#if errors.date}<p class="field-error">{errors.date}</p>{/if}
+  </div>
+
+  <!-- Description (optional) -->
+  <div>
+    <label class="label" for="tx-description">
+      Description <span class="text-gray-400 font-normal">(optional)</span>
+    </label>
+    <input
+      id="tx-description"
+      class="input {errors.description ? 'input-error' : ''}"
+      type="text"
+      bind:value={description}
+      placeholder="What was this for?"
+      maxlength="500"
+      autocomplete="off"
+    />
+    {#if errors.description}<p class="field-error">{errors.description}</p>{/if}
+    <p class="text-xs mt-1" style="color: var(--color-text-subtle);">
+      {description?.length || 0}/500
+    </p>
   </div>
 
   <div class="flex gap-3 pt-2">
@@ -167,7 +189,7 @@
     </button>
     <button type="submit" class="btn-primary flex-1" disabled={loading}>
       {#if loading}
-        <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+        <svg class="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none">
           <circle
             class="opacity-25"
             cx="12"
@@ -182,8 +204,10 @@
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
           />
         </svg>
+        Adding...
+      {:else}
+        Add {txType === 'income' ? 'Income' : 'Expense'}
       {/if}
-      {txType === 'expense' ? 'Add Expense' : 'Add Income'}
     </button>
   </div>
 </form>

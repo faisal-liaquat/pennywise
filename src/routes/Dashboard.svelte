@@ -8,6 +8,8 @@
   import BudgetPeriodForm from '$lib/components/BudgetPeriodForm.svelte'
   import DonutChart from '$lib/components/DonutChart.svelte'
   import BudgetRing from '$lib/components/BudgetRing.svelte'
+  import Skeleton from '$lib/components/Skeleton.svelte'
+  import { toast } from '$lib/stores/toast.js'
   import {
     activePeriod,
     transactions,
@@ -47,15 +49,12 @@
   $effect(() => {
     if ($activePeriod) animatedBudget.set(Number($activePeriod.total_budget))
   })
-
   $effect(() => {
     animatedSpent.set($totalSpent)
   })
-
   $effect(() => {
     animatedRemaining.set($remainingBudget)
   })
-
   $effect(() => {
     animatedIncome.set($totalIncome)
   })
@@ -134,7 +133,6 @@
   }
 
   const expenseCount = $derived($transactions.filter((t) => t.type === 'expense').length)
-
   const avgPerTransaction = $derived(expenseCount > 0 ? $totalSpent / expenseCount : 0)
 
   const formatNum = (n) => {
@@ -148,7 +146,12 @@
 
   async function handleDeleteTransaction(id) {
     if (!confirm('Delete this transaction?')) return
-    await deleteTransaction(id)
+    try {
+      await deleteTransaction(id)
+      toast.success('Transaction deleted')
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete transaction')
+    }
   }
 </script>
 
@@ -197,7 +200,23 @@
     </div>
 
     {#if $loadingBudget}
-      <LoadingSpinner message="Loading your dashboard..." />
+      <!-- Skeleton loading screens -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <Skeleton type="stat-card" count={1} />
+        <Skeleton type="stat-card" count={1} />
+        <Skeleton type="stat-card" count={1} />
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div class="lg:col-span-3">
+          <div class="card">
+            <Skeleton type="transaction-row" count={5} />
+          </div>
+        </div>
+        <div class="lg:col-span-2 space-y-6">
+          <Skeleton type="chart" count={1} />
+          <Skeleton type="card" count={1} />
+        </div>
+      </div>
     {:else if !$activePeriod}
       <EmptyState
         icon="📅"
@@ -290,9 +309,9 @@
                     )}%; background-color: {progressColor};"
                   ></div>
                 </div>
-                <span class="text-xs font-bold flex-shrink-0" style="color: {progressColor};"
-                  >{spentPercent.toFixed(0)}%</span
-                >
+                <span class="text-xs font-bold flex-shrink-0" style="color: {progressColor};">
+                  {spentPercent.toFixed(0)}%
+                </span>
               </div>
             </div>
             <BudgetRing percent={spentPercent} size={60} thickness={7} />
@@ -354,85 +373,90 @@
         </div>
       </div>
 
-      <!-- Main Content Grid -->
+      <!-- Main content grid -->
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <!-- Recent Transactions (3 cols) -->
-        <div class="lg:col-span-3 card fade-slide-in" style="animation-delay: 0.2s;">
-          <div class="flex items-center justify-between mb-5">
-            <h2 class="text-base font-bold" style="color: var(--color-text);">
-              Recent Transactions
-            </h2>
-            {#if $transactions.length > 8}
+        <!-- Left column: recent transactions -->
+        <div class="lg:col-span-3">
+          <div class="card fade-slide-in" style="animation-delay: 0.2s;">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-base font-bold" style="color: var(--color-text);">
+                Recent Transactions
+              </h2>
               <button
                 class="text-xs font-semibold text-primary-600 hover:text-primary-500 transition"
                 onclick={() => {
                   window.location.hash = '/expenses'
-                }}>View all →</button
+                }}
               >
+                View all
+              </button>
+            </div>
+
+            {#if recentTransactions.length === 0}
+              <EmptyState
+                icon="💸"
+                title="No transactions yet"
+                description="Add your first transaction to start tracking."
+              />
+            {:else}
+              <div class="space-y-0.5">
+                {#each recentTransactions as tx}
+                  <div
+                    class="tx-row flex items-center gap-3 px-3 py-2.5 rounded-xl group cursor-default"
+                  >
+                    <div
+                      class="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
+                      style="background-color: {tx.categories?.color || '#7c3aed'}18;"
+                    >
+                      {tx.categories?.icon || '💰'}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-semibold truncate" style="color: var(--color-text);">
+                        {tx.description || tx.categories?.name || 'Transaction'}
+                      </p>
+                      <p class="text-xs" style="color: var(--color-text-subtle);">
+                        {formatDate(tx.date)} · {tx.categories?.name || ''}
+                      </p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                      <span
+                        class="text-sm font-bold"
+                        style="color: {tx.type === 'expense' ? '#ef4444' : '#22c55e'};"
+                      >
+                        {tx.type === 'expense' ? '−' : '+'}{formatCurrency(
+                          tx.amount,
+                          $userCurrency
+                        )}
+                      </span>
+                      <button
+                        aria-label="Delete transaction"
+                        class="opacity-0 group-hover:opacity-100 transition p-1.5 rounded-lg hover:text-red-500"
+                        style="color: var(--color-text-subtle);"
+                        onclick={() => handleDeleteTransaction(tx.id)}
+                      >
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                        >
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path
+                            d="M10 11v6m4-6v6"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                {/each}
+              </div>
             {/if}
           </div>
-
-          {#if recentTransactions.length === 0}
-            <EmptyState
-              icon="💳"
-              title="No transactions yet"
-              description="Add your first expense to get started."
-            />
-          {:else}
-            <div class="space-y-0.5">
-              {#each recentTransactions as tx}
-                <div
-                  class="tx-row flex items-center gap-3 px-3 py-2.5 rounded-xl group cursor-default"
-                >
-                  <div
-                    class="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
-                    style="background-color: {tx.categories?.color || '#7c3aed'}18;"
-                  >
-                    {tx.categories?.icon || '💰'}
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold truncate" style="color: var(--color-text);">
-                      {tx.description || tx.categories?.name || 'Transaction'}
-                    </p>
-                    <p class="text-xs" style="color: var(--color-text-subtle);">
-                      {formatDate(tx.date)} · {tx.categories?.name || ''}
-                    </p>
-                  </div>
-                  <div class="flex items-center gap-2 flex-shrink-0">
-                    <span
-                      class="text-sm font-bold"
-                      style="color: {tx.type === 'expense' ? '#ef4444' : '#22c55e'};"
-                    >
-                      {tx.type === 'expense' ? '−' : '+'}{formatCurrency(tx.amount, $userCurrency)}
-                    </span>
-                    <button
-                      aria-label="Delete transaction"
-                      class="opacity-0 group-hover:opacity-100 transition p-1.5 rounded-lg hover:text-red-500"
-                      style="color: var(--color-text-subtle);"
-                      onclick={() => handleDeleteTransaction(tx.id)}
-                    >
-                      <svg
-                        width="13"
-                        height="13"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                      >
-                        <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path
-                          d="M10 11v6m4-6v6"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              {/each}
-            </div>
-          {/if}
         </div>
 
-        <!-- Right Column (2 cols) -->
+        <!-- Right column: charts + stats -->
         <div class="lg:col-span-2 space-y-6">
           <!-- Spending Breakdown Chart -->
           <div class="card fade-slide-in" style="animation-delay: 0.25s;">
@@ -444,8 +468,10 @@
                 class="text-xs font-semibold text-primary-600 hover:text-primary-500 transition"
                 onclick={() => {
                   window.location.hash = '/categories'
-                }}>Edit</button
+                }}
               >
+                Edit
+              </button>
             </div>
 
             {#if categoryBreakdown.length === 0}
@@ -472,8 +498,9 @@
                           <span
                             class="text-xs font-bold ml-2 flex-shrink-0"
                             style="color: {cat.color};"
-                            >{formatCurrency(cat.spent, $userCurrency)}</span
                           >
+                            {formatCurrency(cat.spent, $userCurrency)}
+                          </span>
                         </div>
                         <div class="progress-bar h-1.5">
                           <div
@@ -539,8 +566,10 @@
                         style="border-color: var(--color-border); color: var(--color-text-muted); background-color: var(--color-surface-2);"
                         onclick={() => {
                           window.location.hash = '/budget'
-                        }}>{period.name}</button
+                        }}
                       >
+                        {period.name}
+                      </button>
                     {/each}
                   </div>
                 </div>

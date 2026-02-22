@@ -3,6 +3,9 @@
   import Input from '$lib/components/Input.svelte'
   import Button from '$lib/components/Button.svelte'
   import { navigate } from '$lib/utils/navigation'
+  import { validateRegisterForm } from '$lib/utils/validators.js'
+  import { checkRateLimit, formatRemainingTime } from '$lib/utils/rateLimiter.js'
+  import { toast } from '$lib/stores/toast.js'
 
   let fullName = ''
   let email = ''
@@ -11,35 +14,43 @@
   let errors = {}
   let loading = false
   let generalError = ''
-  let successMessage = ''
+  let rateLimitError = ''
 
   function validateForm() {
-    errors = {}
-    if (!fullName) errors.fullName = 'Full name is required'
-    else if (fullName.length < 2) errors.fullName = 'Name must be at least 2 characters'
-    if (!email) errors.email = 'Email is required'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Please enter a valid email'
-    if (!password) errors.password = 'Password is required'
-    else if (password.length < 6) errors.password = 'Password must be at least 6 characters'
-    if (!confirmPassword) errors.confirmPassword = 'Please confirm your password'
-    else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match'
-    return Object.keys(errors).length === 0
+    const { errors: validationErrors, isValid } = validateRegisterForm({
+      email,
+      password,
+      confirmPassword,
+      fullName,
+    })
+    errors = validationErrors
+    return isValid
   }
 
   async function handleSubmit() {
     generalError = ''
-    successMessage = ''
+    rateLimitError = ''
+
+    // Rate limit registration — 3 per 10 minutes
+    const rateCheck = checkRateLimit('register', 3, 10 * 60_000)
+    if (!rateCheck.allowed) {
+      rateLimitError = `Too many attempts. Please wait ${formatRemainingTime(rateCheck.remainingMs)}.`
+      return
+    }
+
     if (!validateForm()) return
+
     loading = true
     const result = await authStore.signUp(email, password, fullName)
     loading = false
+
     if (result.success) {
-      successMessage = 'Account created! Check your email to verify, then sign in.'
+      toast.success('Account created! Check your email to verify, then sign in.')
       fullName = ''
       email = ''
       password = ''
       confirmPassword = ''
-      setTimeout(() => navigate('/login'), 3000)
+      setTimeout(() => navigate('/login'), 2500)
     } else {
       generalError = result.error || 'Failed to create account. Please try again.'
     }
@@ -73,25 +84,27 @@
       <p class="panel-subtitle">
         Join PennyWise and take the first step toward complete clarity over your money.
       </p>
-      <div class="panel-steps">
-        <div class="panel-step">
-          <span class="step-num">01</span><span>Create your account</span>
+      <div class="panel-features">
+        <div class="panel-feature">
+          <span class="feature-dot"></span>
+          Free to use — no credit card needed
         </div>
-        <div class="step-line"></div>
-        <div class="panel-step">
-          <span class="step-num">02</span><span>Set up a budget period</span>
+        <div class="panel-feature">
+          <span class="feature-dot"></span>
+          Your data is private and encrypted
         </div>
-        <div class="step-line"></div>
-        <div class="panel-step">
-          <span class="step-num">03</span><span>Track every transaction</span>
+        <div class="panel-feature">
+          <span class="feature-dot"></span>
+          Set up in under 2 minutes
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Right: form -->
+  <!-- Right: auth card -->
   <div class="auth-right">
     <div class="auth-card">
+      <!-- Logo -->
       <div class="auth-logo-row">
         <div class="auth-logo-icon">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
@@ -119,8 +132,28 @@
 
       <div class="auth-header">
         <h1 class="auth-title">Create account</h1>
-        <p class="auth-subtitle">Free forever. No credit card needed.</p>
+        <p class="auth-subtitle">Start tracking your finances today</p>
       </div>
+
+      {#if rateLimitError}
+        <div class="auth-alert auth-alert-warning">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <path
+              d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+            />
+            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          {rateLimitError}
+        </div>
+      {/if}
 
       {#if generalError}
         <div class="auth-alert auth-alert-error">
@@ -132,29 +165,14 @@
             stroke="currentColor"
             stroke-width="2"
             stroke-linecap="round"
-            ><circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" /></svg
           >
+            <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+          </svg>
           {generalError}
         </div>
       {/if}
 
-      {#if successMessage}
-        <div class="auth-alert auth-alert-success">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            ><circle cx="12" cy="12" r="10" /><polyline points="9 12 11 14 15 10" /></svg
-          >
-          {successMessage}
-        </div>
-      {/if}
-
-      <form on:submit|preventDefault={handleSubmit} class="auth-form">
+      <form on:submit|preventDefault={handleSubmit} class="auth-form" novalidate>
         <Input
           type="text"
           label="Full name"
@@ -181,7 +199,7 @@
           type="password"
           label="Password"
           id="password"
-          placeholder="Min. 6 characters"
+          placeholder="Min. 8 characters"
           bind:value={password}
           error={errors.password}
           required
@@ -292,35 +310,27 @@
     margin-bottom: 2.5rem;
   }
 
-  .panel-steps {
+  .panel-features {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 0.875rem;
   }
 
-  .panel-step {
+  .panel-feature {
     display: flex;
     align-items: center;
-    gap: 0.875rem;
-    font-size: 0.925rem;
+    gap: 0.75rem;
+    font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.85);
     font-weight: 500;
-    padding: 0.5rem 0;
   }
 
-  .step-num {
-    font-size: 0.7rem;
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.5);
-    letter-spacing: 0.05em;
-    min-width: 24px;
-  }
-
-  .step-line {
-    width: 1px;
-    height: 20px;
-    background: rgba(255, 255, 255, 0.2);
-    margin-left: 11px;
+  .feature-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+    flex-shrink: 0;
   }
 
   .auth-right {
@@ -331,12 +341,11 @@
     align-items: center;
     justify-content: center;
     padding: 2rem 1.5rem;
-    overflow-y: auto;
   }
 
   @media (min-width: 900px) {
     .auth-right {
-      padding: 3rem;
+      padding: 3rem 3rem;
     }
   }
 
@@ -350,6 +359,10 @@
     align-items: center;
     gap: 0.75rem;
     margin-bottom: 2.5rem;
+  }
+
+  .auth-logo-icon {
+    flex-shrink: 0;
   }
 
   .auth-logo-name {
@@ -386,6 +399,7 @@
   .auth-subtitle {
     font-size: 0.9375rem;
     color: var(--color-text-muted);
+    font-weight: 400;
   }
 
   .auth-alert {
@@ -406,10 +420,10 @@
     border-color: rgba(239, 68, 68, 0.2);
   }
 
-  .auth-alert-success {
-    background-color: rgba(34, 197, 94, 0.08);
-    color: #22c55e;
-    border-color: rgba(34, 197, 94, 0.2);
+  .auth-alert-warning {
+    background-color: rgba(245, 158, 11, 0.08);
+    color: #d97706;
+    border-color: rgba(245, 158, 11, 0.25);
   }
 
   .auth-form {
@@ -432,6 +446,7 @@
     color: #6d28d9;
     text-decoration: underline;
   }
+
   .auth-link-bold {
     font-weight: 700;
     margin-left: 0.25rem;
