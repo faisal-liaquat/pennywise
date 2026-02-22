@@ -3,29 +3,42 @@
   import Input from '$lib/components/Input.svelte'
   import Button from '$lib/components/Button.svelte'
   import { navigate } from '$lib/utils/navigation'
+  import { validateLoginForm } from '$lib/utils/validators.js'
+  import { checkRateLimit, resetRateLimit, formatRemainingTime } from '$lib/utils/rateLimiter.js'
+  import { toast } from '$lib/stores/toast.js'
 
   let email = ''
   let password = ''
   let errors = {}
   let loading = false
   let generalError = ''
+  let rateLimitError = ''
 
   function validateForm() {
-    errors = {}
-    if (!email) errors.email = 'Email is required'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Please enter a valid email'
-    if (!password) errors.password = 'Password is required'
-    else if (password.length < 6) errors.password = 'Password must be at least 6 characters'
-    return Object.keys(errors).length === 0
+    const { errors: validationErrors, isValid } = validateLoginForm({ email, password })
+    errors = validationErrors
+    return isValid
   }
 
   async function handleSubmit() {
     generalError = ''
+    rateLimitError = ''
+
+    // Rate limit login attempts — 5 per 5 minutes
+    const rateCheck = checkRateLimit('login', 5, 5 * 60_000)
+    if (!rateCheck.allowed) {
+      rateLimitError = `Too many login attempts. Please wait ${formatRemainingTime(rateCheck.remainingMs)}.`
+      return
+    }
+
     if (!validateForm()) return
+
     loading = true
     const result = await authStore.signIn(email, password)
     loading = false
+
     if (result.success) {
+      resetRateLimit('login')
       navigate('/dashboard')
     } else {
       generalError = result.error || 'Failed to sign in. Please try again.'
@@ -111,6 +124,26 @@
         <p class="auth-subtitle">Sign in to your account to continue</p>
       </div>
 
+      {#if rateLimitError}
+        <div class="auth-alert auth-alert-warning">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <path
+              d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+            />
+            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          {rateLimitError}
+        </div>
+      {/if}
+
       {#if generalError}
         <div class="auth-alert auth-alert-error">
           <svg
@@ -121,13 +154,14 @@
             stroke="currentColor"
             stroke-width="2"
             stroke-linecap="round"
-            ><circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" /></svg
           >
+            <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+          </svg>
           {generalError}
         </div>
       {/if}
 
-      <form on:submit|preventDefault={handleSubmit} class="auth-form">
+      <form on:submit|preventDefault={handleSubmit} class="auth-form" novalidate>
         <Input
           type="email"
           label="Email address"
@@ -359,6 +393,12 @@
     background-color: rgba(239, 68, 68, 0.08);
     color: #ef4444;
     border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .auth-alert-warning {
+    background-color: rgba(245, 158, 11, 0.08);
+    color: #d97706;
+    border-color: rgba(245, 158, 11, 0.25);
   }
 
   .auth-form {
