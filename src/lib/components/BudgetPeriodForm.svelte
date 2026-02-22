@@ -1,5 +1,7 @@
 <script>
   import { createBudgetPeriod, updateBudgetPeriod } from '$lib/stores/budget.js'
+  import { validateBudgetPeriodForm } from '$lib/utils/validators.js'
+  import { toast } from '$lib/stores/toast.js'
   import { format, addMonths } from 'date-fns'
 
   let { period = null, onSuccess, onCancel } = $props()
@@ -7,13 +9,11 @@
   const today = new Date()
   const nextMonth = addMonths(today, 1)
 
-  // Use plain let for initial values derived from props — avoids state_referenced_locally
   let name = $state('')
   let start_date = $state('')
   let end_date = $state('')
   let total_budget = $state('')
 
-  // Initialize from prop once on mount using $effect
   let initialized = false
   $effect(() => {
     if (!initialized) {
@@ -26,28 +26,26 @@
   })
 
   let loading = $state(false)
-  let error = $state('')
   let errors = $state({})
-
-  function validate() {
-    errors = {}
-    if (!name.trim()) errors.name = 'Period name is required'
-    if (!start_date) errors.start_date = 'Start date is required'
-    if (!end_date) errors.end_date = 'End date is required'
-    if (start_date && end_date && start_date >= end_date) {
-      errors.end_date = 'End date must be after start date'
-    }
-    if (!total_budget || Number(total_budget) <= 0) {
-      errors.total_budget = 'Budget must be greater than 0'
-    }
-    return Object.keys(errors).length === 0
-  }
 
   async function handleSubmit(event) {
     event.preventDefault()
-    if (!validate()) return
+
+    const { errors: validationErrors, isValid } = validateBudgetPeriodForm({
+      name,
+      start_date,
+      end_date,
+      total_budget,
+    })
+
+    if (!isValid) {
+      errors = validationErrors
+      return
+    }
+
+    errors = {}
     loading = true
-    error = ''
+
     try {
       if (period) {
         await updateBudgetPeriod(period.id, {
@@ -56,23 +54,21 @@
           end_date,
           total_budget: Number(total_budget),
         })
+        toast.success('Budget period updated successfully')
       } else {
         await createBudgetPeriod({ name, start_date, end_date, total_budget })
+        toast.success('Budget period created successfully')
       }
       onSuccess?.()
     } catch (err) {
-      error = err.message
+      toast.error(err.message || 'Something went wrong. Please try again.')
     } finally {
       loading = false
     }
   }
 </script>
 
-<form onsubmit={handleSubmit} class="space-y-4">
-  {#if error}
-    <div class="alert alert-error">{error}</div>
-  {/if}
-
+<form onsubmit={handleSubmit} class="space-y-4" novalidate>
   <div>
     <label class="label" for="period-name">Period Name</label>
     <input
@@ -81,6 +77,8 @@
       type="text"
       bind:value={name}
       placeholder="e.g. December 2024 Budget"
+      maxlength="100"
+      autocomplete="off"
     />
     {#if errors.name}<p class="field-error">{errors.name}</p>{/if}
   </div>
@@ -93,6 +91,8 @@
         class="input {errors.start_date ? 'input-error' : ''}"
         type="date"
         bind:value={start_date}
+        min="2000-01-01"
+        max="2100-12-31"
       />
       {#if errors.start_date}<p class="field-error">{errors.start_date}</p>{/if}
     </div>
@@ -103,6 +103,8 @@
         class="input {errors.end_date ? 'input-error' : ''}"
         type="date"
         bind:value={end_date}
+        min="2000-01-01"
+        max="2100-12-31"
       />
       {#if errors.end_date}<p class="field-error">{errors.end_date}</p>{/if}
     </div>
@@ -116,7 +118,8 @@
         id="total-budget"
         class="input pl-8 {errors.total_budget ? 'input-error' : ''}"
         type="number"
-        min="0"
+        min="0.01"
+        max="999999999"
         step="0.01"
         bind:value={total_budget}
         placeholder="0.00"
@@ -131,7 +134,7 @@
     </button>
     <button type="submit" class="btn-primary flex-1" disabled={loading}>
       {#if loading}
-        <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+        <svg class="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none">
           <circle
             class="opacity-25"
             cx="12"
@@ -146,8 +149,10 @@
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
           />
         </svg>
+        {period ? 'Updating...' : 'Creating...'}
+      {:else}
+        {period ? 'Update Period' : 'Create Period'}
       {/if}
-      {period ? 'Update Period' : 'Create Period'}
     </button>
   </div>
 </form>
