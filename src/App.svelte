@@ -12,6 +12,7 @@
   import Expenses from './routes/Expenses.svelte'
   import Settings from './routes/Settings.svelte'
   import Analytics from './routes/Analytics.svelte'
+  import Toast from '$lib/components/Toast.svelte'
 
   let currentRoute = 'loading'
   let showResetPassword = false
@@ -270,6 +271,9 @@
     <svelte:component this={Component} />
   {/if}
 {/if}
+
+<!-- Global toast notifications — always rendered -->
+<Toast />
 
 <style>
   .auth-bg {
