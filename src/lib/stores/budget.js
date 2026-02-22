@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store'
 import { supabase } from '$lib/supabaseClient'
+import { sanitizeTransaction, sanitizeBudgetPeriod, sanitizeCategory } from '$lib/utils/sanitize.js'
 
 // ─── Currency store ───────────────────────────────────────────────────────────
 export const userCurrency = writable('USD')
@@ -127,7 +128,15 @@ export async function loadBudgetPeriods() {
 
 export async function createBudgetPeriod({ name, start_date, end_date, total_budget }) {
   const { data: userData } = await supabase.auth.getUser()
-  if (!userData?.user) throw new Error('Not authenticated')
+  if (!userData?.user) throw new Error('You must be signed in to create a budget period')
+
+  // Sanitize inputs before DB insert
+  const sanitized = sanitizeBudgetPeriod({ name, start_date, end_date, total_budget })
+
+  if (!sanitized.name) throw new Error('Period name is required')
+  if (!sanitized.start_date || !sanitized.end_date) throw new Error('Valid dates are required')
+  if (!sanitized.total_budget || sanitized.total_budget <= 0)
+    throw new Error('Budget must be greater than 0')
 
   await supabase.from('budget_periods').update({ is_active: false }).eq('is_active', true)
 
@@ -135,31 +144,39 @@ export async function createBudgetPeriod({ name, start_date, end_date, total_bud
     .from('budget_periods')
     .insert({
       user_id: userData.user.id,
-      name,
-      start_date,
-      end_date,
-      total_budget: Number(total_budget),
+      ...sanitized,
       is_active: true,
     })
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505') throw new Error('A budget period with this name already exists')
+    if (error.code === '23514')
+      throw new Error('Invalid date range — end date must be after start date')
+    throw new Error(error.message || 'Failed to create budget period')
+  }
 
   budgetPeriods.update((periods) => [data, ...periods])
   activePeriod.set(data)
   return data
 }
 
-export async function updateBudgetPeriod(id, updates) {
+export async function updateBudgetPeriod(id, { name, start_date, end_date, total_budget }) {
+  const sanitized = sanitizeBudgetPeriod({ name, start_date, end_date, total_budget })
+
   const { data, error } = await supabase
     .from('budget_periods')
-    .update(updates)
+    .update({ ...sanitized, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === '23514')
+      throw new Error('Invalid date range — end date must be after start date')
+    throw new Error(error.message || 'Failed to update budget period')
+  }
 
   budgetPeriods.update((periods) => periods.map((p) => (p.id === id ? data : p)))
 
@@ -171,7 +188,7 @@ export async function updateBudgetPeriod(id, updates) {
 
 export async function deleteBudgetPeriod(id) {
   const { error } = await supabase.from('budget_periods').delete().eq('id', id)
-  if (error) throw error
+  if (error) throw new Error(error.message || 'Failed to delete budget period')
 
   budgetPeriods.update((periods) => periods.filter((p) => p.id !== id))
 
@@ -207,22 +224,27 @@ export async function loadCategories() {
 
 export async function createCategory({ name, type, color, icon }) {
   const { data: userData } = await supabase.auth.getUser()
-  if (!userData?.user) throw new Error('Not authenticated')
+  if (!userData?.user) throw new Error('You must be signed in to create a category')
+
+  const sanitized = sanitizeCategory({ name, type, color, icon })
+
+  if (!sanitized.name) throw new Error('Category name is required')
 
   const { data, error } = await supabase
     .from('categories')
     .insert({
       user_id: userData.user.id,
-      name,
-      type,
-      color: color || '#7c3aed',
-      icon: icon || '📦',
+      ...sanitized,
       is_system: false,
     })
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505')
+      throw new Error(`A "${type}" category named "${name}" already exists`)
+    throw new Error(error.message || 'Failed to create category')
+  }
 
   categories.update((cats) => [...cats, data])
   return data
@@ -231,7 +253,7 @@ export async function createCategory({ name, type, color, icon }) {
 export async function deleteCategory(id) {
   const { error } = await supabase.from('categories').delete().eq('id', id).eq('is_system', false) // safety: never delete system categories
 
-  if (error) throw error
+  if (error) throw new Error(error.message || 'Failed to delete category')
 
   categories.update((cats) => cats.filter((c) => c.id !== id))
 }
@@ -262,30 +284,55 @@ export async function addTransaction({
   date,
 }) {
   const { data: userData } = await supabase.auth.getUser()
-  if (!userData?.user) throw new Error('Not authenticated')
+  if (!userData?.user) throw new Error('You must be signed in to add a transaction')
+
+  const sanitized = sanitizeTransaction({
+    amount,
+    description,
+    date,
+    category_id,
+    type,
+    budget_period_id,
+  })
+
+  if (!sanitized.amount || sanitized.amount <= 0) throw new Error('Amount must be greater than 0')
+  if (!sanitized.category_id) throw new Error('Category is required')
+  if (!sanitized.date) throw new Error('Valid date is required')
 
   const { data, error } = await supabase
     .from('transactions')
     .insert({
       user_id: userData.user.id,
-      budget_period_id,
-      category_id,
-      amount: Number(amount),
-      type,
-      description,
-      date,
+      ...sanitized,
     })
     .select('*, categories(id, name, icon, color, type)')
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.code === '23503') throw new Error('Selected category no longer exists')
+    throw new Error(error.message || 'Failed to add transaction')
+  }
 
   transactions.update((txs) => [data, ...txs])
   return data
 }
 
 export async function deleteTransaction(id) {
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData?.user) throw new Error('Not authenticated')
+
+  // Verify ownership before delete (defense-in-depth on top of RLS)
+  const { data: existing } = await supabase
+    .from('transactions')
+    .select('id, user_id')
+    .eq('id', id)
+    .single()
+
+  if (!existing) throw new Error('Transaction not found')
+  if (existing.user_id !== userData.user.id) throw new Error('Unauthorized')
+
   const { error } = await supabase.from('transactions').delete().eq('id', id)
-  if (error) throw error
+  if (error) throw new Error(error.message || 'Failed to delete transaction')
+
   transactions.update((txs) => txs.filter((t) => t.id !== id))
 }
