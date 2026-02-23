@@ -1,5 +1,6 @@
 import { derived } from 'svelte/store'
 import { transactions, categories, budgetPeriods, activePeriod } from '$lib/stores/budget.js'
+import { incomeInBudget } from '$lib/stores/incomeToggle.js'
 
 // ─── Helper: spending by category for a specific period ───────────────────────
 export function getSpendingByCategory(txs, periodId) {
@@ -58,13 +59,10 @@ export const budgetVsActual = derived(
   }
 )
 
-// ─── Savings data across all periods ─────────────────────────────────────────
-// Shows: budget, totalSpent, netSavings, AND explicit savings category deposits
+// ─── Savings data across all periods — respects income toggle ─────────────────
 export const savingsData = derived(
-  [transactions, budgetPeriods, categories],
-  ([$transactions, $budgetPeriods, $categories]) => {
-    // Find ALL categories whose name contains "saving" (case-insensitive)
-    // This catches "Savings", "savings", "Saving", user custom variants, etc.
+  [transactions, budgetPeriods, categories, incomeInBudget],
+  ([$transactions, $budgetPeriods, $categories, $incomeInBudget]) => {
     const savingsCategories = $categories.filter((c) => c.name?.toLowerCase().includes('saving'))
     const savingsCategoryIds = new Set(savingsCategories.map((c) => c.id))
 
@@ -82,15 +80,16 @@ export const savingsData = derived(
           .filter((t) => t.type === 'income')
           .reduce((sum, t) => sum + Number(t.amount), 0)
 
-        // Sum all transactions in any savings-named category
         const savedToSavingsCategory = periodTxs
           .filter((t) => t.type === 'expense' && savingsCategoryIds.has(t.category_id))
           .reduce((sum, t) => sum + Number(t.amount), 0)
 
         const budget = Number(period.total_budget)
-        const netSavings = budget + totalIncome - totalSpent
+        // Respect the toggle: only add income to net savings calc if toggle is ON
+        const incomeBoost = $incomeInBudget ? totalIncome : 0
+        const netSavings = budget + incomeBoost - totalSpent
         const savingsRate =
-          budget + totalIncome > 0 ? (netSavings / (budget + totalIncome)) * 100 : 0
+          budget + incomeBoost > 0 ? (netSavings / (budget + incomeBoost)) * 100 : 0
 
         return {
           periodId: period.id,
@@ -100,17 +99,17 @@ export const savingsData = derived(
           totalIncome,
           netSavings,
           savingsRate,
-          savedToSavingsCategory, // explicit savings category deposits
+          savedToSavingsCategory,
           hasSavingsCategory: savingsCategoryIds.size > 0,
         }
       })
   }
 )
 
-// ─── Period comparison: last N periods ────────────────────────────────────────
+// ─── Period comparison: last N periods — respects income toggle ───────────────
 export const periodComparison = derived(
-  [transactions, budgetPeriods],
-  ([$transactions, $budgetPeriods]) => {
+  [transactions, budgetPeriods, incomeInBudget],
+  ([$transactions, $budgetPeriods, $incomeInBudget]) => {
     return $budgetPeriods
       .slice(0, 5)
       .reverse()
@@ -126,7 +125,8 @@ export const periodComparison = derived(
           .reduce((sum, t) => sum + Number(t.amount), 0)
 
         const budget = Number(period.total_budget)
-        const remaining = budget + totalIncome - totalSpent
+        const incomeBoost = $incomeInBudget ? totalIncome : 0
+        const remaining = budget + incomeBoost - totalSpent
         const utilizationPct = budget > 0 ? Math.min(120, (totalSpent / budget) * 100) : 0
 
         return {

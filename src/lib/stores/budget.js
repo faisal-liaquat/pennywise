@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store'
 import { supabase } from '$lib/supabaseClient'
 import { sanitizeTransaction, sanitizeBudgetPeriod, sanitizeCategory } from '$lib/utils/sanitize.js'
+import { incomeInBudget } from '$lib/stores/incomeToggle.js'
 
 // ─── Currency store ───────────────────────────────────────────────────────────
 export const userCurrency = writable('USD')
@@ -75,12 +76,15 @@ export const totalIncome = derived(
   }
 )
 
-// ─── Derived: remaining budget (budget + income - expenses) ───────────────────
+// ─── Derived: remaining budget — respects income toggle ───────────────────────
+// When incomeInBudget is ON:  Budget + Income − Expenses = Remaining
+// When incomeInBudget is OFF: Budget − Expenses = Remaining (income tracked only)
 export const remainingBudget = derived(
-  [activePeriod, totalSpent, totalIncome],
-  ([$activePeriod, $totalSpent, $totalIncome]) => {
+  [activePeriod, totalSpent, totalIncome, incomeInBudget],
+  ([$activePeriod, $totalSpent, $totalIncome, $incomeInBudget]) => {
     if (!$activePeriod) return 0
-    return Number($activePeriod.total_budget) + $totalIncome - $totalSpent
+    const incomeBoost = $incomeInBudget ? $totalIncome : 0
+    return Number($activePeriod.total_budget) + incomeBoost - $totalSpent
   }
 )
 
@@ -130,7 +134,6 @@ export async function createBudgetPeriod({ name, start_date, end_date, total_bud
   const { data: userData } = await supabase.auth.getUser()
   if (!userData?.user) throw new Error('You must be signed in to create a budget period')
 
-  // Sanitize inputs before DB insert
   const sanitized = sanitizeBudgetPeriod({ name, start_date, end_date, total_budget })
 
   if (!sanitized.name) throw new Error('Period name is required')
@@ -251,7 +254,7 @@ export async function createCategory({ name, type, color, icon }) {
 }
 
 export async function deleteCategory(id) {
-  const { error } = await supabase.from('categories').delete().eq('id', id).eq('is_system', false) // safety: never delete system categories
+  const { error } = await supabase.from('categories').delete().eq('id', id).eq('is_system', false)
 
   if (error) throw new Error(error.message || 'Failed to delete category')
 
@@ -287,17 +290,17 @@ export async function addTransaction({
   if (!userData?.user) throw new Error('You must be signed in to add a transaction')
 
   const sanitized = sanitizeTransaction({
+    category_id,
     amount,
     description,
     date,
-    category_id,
     type,
     budget_period_id,
   })
 
-  if (!sanitized.amount || sanitized.amount <= 0) throw new Error('Amount must be greater than 0')
   if (!sanitized.category_id) throw new Error('Category is required')
-  if (!sanitized.date) throw new Error('Valid date is required')
+  if (!sanitized.amount || sanitized.amount <= 0) throw new Error('Amount must be greater than 0')
+  if (!sanitized.date) throw new Error('Date is required')
 
   const { data, error } = await supabase
     .from('transactions')
@@ -309,7 +312,7 @@ export async function addTransaction({
     .single()
 
   if (error) {
-    if (error.code === '23503') throw new Error('Selected category no longer exists')
+    if (error.code === '23514') throw new Error('Invalid transaction data')
     throw new Error(error.message || 'Failed to add transaction')
   }
 
@@ -318,21 +321,23 @@ export async function addTransaction({
 }
 
 export async function deleteTransaction(id) {
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData?.user) throw new Error('Not authenticated')
-
-  // Verify ownership before delete (defense-in-depth on top of RLS)
-  const { data: existing } = await supabase
-    .from('transactions')
-    .select('id, user_id')
-    .eq('id', id)
-    .single()
-
-  if (!existing) throw new Error('Transaction not found')
-  if (existing.user_id !== userData.user.id) throw new Error('Unauthorized')
-
   const { error } = await supabase.from('transactions').delete().eq('id', id)
   if (error) throw new Error(error.message || 'Failed to delete transaction')
-
   transactions.update((txs) => txs.filter((t) => t.id !== id))
+}
+
+export async function updateTransaction(id, updates) {
+  const sanitized = sanitizeTransaction(updates)
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .update({ ...sanitized, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('*, categories(id, name, icon, color, type)')
+    .single()
+
+  if (error) throw new Error(error.message || 'Failed to update transaction')
+
+  transactions.update((txs) => txs.map((t) => (t.id === id ? data : t)))
+  return data
 }
